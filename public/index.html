@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>사이트핏 - 홈페이지 검색이해도 진단센터</title>
+    <meta name="description" content="URL만 입력하면 홈페이지가 검색엔진, AI 답변엔진, 고객에게 이해되기 쉬운 구조인지 실제 데이터로 진단합니다.">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <strong>사이트핏 SiteFit</strong>
+      <a href="/admin.html">관리자</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">홈페이지 검색이해도 진단센터</p>
+          <h1>URL만 넣으면 검색·AI·전환 구조를 실제 데이터로 진단합니다.</h1>
+          <p>사이트핏은 순위 보장이나 자동 수정을 약속하지 않습니다. 사이트를 직접 수집해 기술 SEO, 검색이해도, AEO, GEO, 전환 구조의 개선 지점을 찾고 실제 상담과 작업 범위로 연결합니다.</p>
+        </div>
+
+        <form id="diagnosis-form" class="panel">
+          <label>
+            사이트 URL
+            <input name="siteUrl" type="url" placeholder="https://example.com" autocomplete="url" required>
+          </label>
+          <button type="submit">URL 진단 시작</button>
+          <p class="form-note">업종과 목표는 먼저 묻지 않습니다. 초기 진단은 URL 기반 실제 수집 데이터로 진행하고, 상담 신청 단계에서 필요한 정보를 보강합니다.</p>
+        </form>
+      </section>
+
+      <section id="result" class="result" hidden></section>
+
+      <section class="grid">
+        <article>
+          <h2>실제 수집 기반 진단</h2>
+          <p>입력한 URL에서 접근 가능한 페이지, 메타 정보, 제목 구조, 링크, 사이트 자산을 수집해 근거가 있는 항목만 점검합니다.</p>
+        </article>
+        <article>
+          <h2>룰 기반 문제 탐지</h2>
+          <p>기술 SEO, 검색이해도, AEO, GEO, 전환 구조를 명확한 규칙과 실제 HTML 데이터 기준으로 분류합니다.</p>
+        </article>
+        <article>
+          <h2>상담 가능한 작업 범위</h2>
+          <p>이슈를 영향도, 난이도, 담당자, 예상 작업 범위로 정리해 개선 상담과 견적 초안으로 이어지게 합니다.</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>개선 상담 신청</h2>
+        <form id="lead-form" class="lead-form">
+          <input name="name" placeholder="이름" autocomplete="name" required>
+          <input name="company" placeholder="회사명" autocomplete="organization">
+          <input name="email" type="email" placeholder="이메일" autocomplete="email" required>
+          <input name="siteUrl" type="url" placeholder="사이트 URL" autocomplete="url" required>
+          <select name="budgetRange" required>
+            <option value="under-100">100만 원 이하</option>
+            <option value="100-300">100만~300만 원</option>
+            <option value="300-700">300만~700만 원</option>
+            <option value="over-700">700만 원 이상</option>
+            <option value="unknown">아직 모름</option>
+          </select>
+          <select name="desiredWork" required>
+            <option value="diagnosis-only">진단만</option>
+            <option value="fix-only">수정 작업까지</option>
+            <option value="fix-and-monthly">수정 작업과 월관리</option>
+            <option value="monthly-management">월관리</option>
+          </select>
+          <select name="timeline" required>
+            <option value="urgent">긴급</option>
+            <option value="month">1개월 이내</option>
+            <option value="quarter">분기 내</option>
+            <option value="flexible">일정 협의</option>
+          </select>
+          <button type="submit">상담 신청하기</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

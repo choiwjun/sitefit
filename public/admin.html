@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>사이트핏 관리자</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <strong>사이트핏 관리자</strong>
+      <nav class="topbar-links">
+        <a href="/">공개 화면</a>
+        <a href="/admin-login.html">관리자 로그인</a>
+      </nav>
+    </header>
+    <main>
+      <section class="admin-hero">
+        <div>
+          <p class="eyebrow">영업 운영 대시보드</p>
+          <h1>진단 리드를 상담, 견적, 계약, 재진단으로 넘기는 영업 파이프라인</h1>
+          <p>URL 진단 이후 실제 개발 영업으로 이어지도록 리드 상태, 상담 이력, 견적 상태, 재진단 히스토리를 한 화면에서 관리합니다.</p>
+        </div>
+        <div id="admin-summary" class="metric-grid">불러오는 중...</div>
+      </section>
+
+      <section class="toolbar-panel">
+        <label>
+          검색
+          <input id="admin-search" type="search" placeholder="회사명, URL, 이메일 검색">
+        </label>
+        <label>
+          리드 등급
+          <select id="grade-filter">
+            <option value="">전체</option>
+            <option value="hot">우선 상담</option>
+            <option value="warm">검토 필요</option>
+            <option value="nurture">장기 관리</option>
+          </select>
+        </label>
+        <label>
+          견적 상태
+          <select id="estimate-filter">
+            <option value="">전체</option>
+            <option value="draft">초안</option>
+            <option value="sent">발송</option>
+            <option value="negotiation">협의 중</option>
+            <option value="accepted">수락</option>
+            <option value="rejected">거절</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Pipeline</p>
+            <h2>영업 파이프라인</h2>
+          </div>
+          <button id="refresh-admin" type="button">새로고침</button>
+        </div>
+        <div data-pipeline-board id="pipeline-board" class="pipeline-board">불러오는 중...</div>
+      </section>
+
+      <section class="admin-workspace">
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Leads</p>
+              <h2>리드 상세</h2>
+            </div>
+          </div>
+          <div id="lead-list" class="table-list">불러오는 중...</div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Consultation</p>
+              <h2>상담 이력</h2>
+            </div>
+          </div>
+          <form id="note-form" class="compact-form">
+            <label>
+              리드 ID
+              <input name="leadId" placeholder="lead_...">
+            </label>
+            <label>
+              상담 메모
+              <textarea name="body" rows="5" placeholder="의사결정자, 예산, 니즈, 다음 액션"></textarea>
+            </label>
+            <button type="submit">상담 메모 저장</button>
+          </form>
+          <div id="note-list" class="table-list">불러오는 중...</div>
+        </article>
+      </section>
+
+      <section class="admin-workspace">
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Estimates</p>
+              <h2>견적 상태</h2>
+            </div>
+          </div>
+          <div id="estimate-list" class="table-list">불러오는 중...</div>
+        </article>
+
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Rediagnosis</p>
+              <h2>재진단 히스토리</h2>
+            </div>
+          </div>
+          <form id="rediagnosis-form" class="compact-form">
+            <label>
+              이전 진단 ID
+              <input name="beforeRunId" placeholder="run_...">
+            </label>
+            <label>
+              이후 진단 ID
+              <input name="afterRunId" placeholder="run_...">
+            </label>
+            <button type="submit">재진단 비교</button>
+          </form>
+          <div id="rediagnosis-result" class="table-list">비교할 진단 2개를 입력하세요.</div>
+        </article>
+      </section>
+
+      <section class="admin-workspace">
+        <article class="panel">
+          <h2>진단 기록</h2>
+          <div id="run-list" class="table-list">불러오는 중...</div>
+        </article>
+        <article class="panel">
+          <h2>운영 리소스</h2>
+          <div id="operation-list" class="table-list">불러오는 중...</div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        summary: null,
+        leads: [],
+        runs: [],
+        estimates: [],
+        notes: [],
+        partners: [],
+        assignments: [],
+        monthly: [],
+        packages: []
+      };
+
+      const leadStatuses = ['consultation_requested', 'consultation_scheduled', 'consultation_complete', 'estimate_pending', 'estimate_sent', 'negotiation', 'contracted', 'lost'];
+      const estimateStatuses = ['draft', 'sent', 'negotiation', 'accepted', 'rejected'];
+      const leadStatusLabels = {
+        consultation_requested: '상담 신청',
+        consultation_scheduled: '상담 예정',
+        consultation_complete: '상담 완료',
+        estimate_pending: '견적 전',
+        estimate_sent: '견적 발송',
+        negotiation: '협의 중',
+        contracted: '계약',
+        lost: '실패'
+      };
+      const estimateStatusLabels = {
+        draft: '초안',
+        sent: '발송',
+        negotiation: '협의 중',
+        accepted: '수락',
+        rejected: '거절'
+      };
+      const leadGradeLabels = { hot: '우선 상담', warm: '검토 필요', nurture: '장기 관리' };
+
+      document.querySelector('#refresh-admin').addEventListener('click', loadAdmin);
+      document.querySelector('#admin-search').addEventListener('input', renderAdmin);
+      document.querySelector('#grade-filter').addEventListener('change', renderAdmin);
+      document.querySelector('#estimate-filter').addEventListener('change', renderAdmin);
+      document.querySelector('#note-form').addEventListener('submit', saveNote);
+      document.querySelector('#rediagnosis-form').addEventListener('submit', compareRediagnosis);
+
+      async function loadAdmin() {
+        const [summary, leads, runs, estimates, notes, partners, assignments, monthly, packages] = await Promise.all([
+          adminFetch('/api/admin/summary').then((response) => response.json()),
+          adminFetch('/api/admin/leads').then((response) => response.json()),
+          adminFetch('/api/admin/runs').then((response) => response.json()),
+          adminFetch('/api/admin/estimates').then((response) => response.json()),
+          adminFetch('/api/admin/notes').then((response) => response.json()),
+          adminFetch('/api/admin/partners').then((response) => response.json()),
+          adminFetch('/api/admin/assignments').then((response) => response.json()),
+          adminFetch('/api/admin/monthly-accounts').then((response) => response.json()),
+          adminFetch('/api/packages').then((response) => response.json())
+        ]);
+
+        state.summary = summary;
+        state.leads = leads.leads || [];
+        state.runs = runs.runs || [];
+        state.estimates = estimates.estimates || [];
+        state.notes = notes.notes || [];
+        state.partners = partners.partners || [];
+        state.assignments = assignments.assignments || [];
+        state.monthly = monthly.accounts || [];
+        state.packages = packages.packages || [];
+        renderAdmin();
+      }
+
+      function renderAdmin() {
+        renderSummary();
+        renderPipeline();
+        renderLeads();
+        renderNotes();
+        renderEstimates();
+        renderRuns();
+        renderOperations();
+        bindStatusControls();
+      }
+
+      function renderSummary() {
+        const summary = state.summary;
+        if (!summary) return;
+        document.querySelector('#admin-summary').innerHTML = `
+          <div><strong>${escapeHtml(summary.diagnosisRuns.total)}</strong><span>진단</span></div>
+          <div><strong>${escapeHtml(summary.diagnosisRuns.averageScore)}</strong><span>평균 점수</span></div>
+          <div><strong>${escapeHtml(summary.leads.hot)}</strong><span>우선 상담</span></div>
+          <div><strong>${escapeHtml(summary.estimates.total)}</strong><span>견적</span></div>
+        `;
+      }
+
+      function renderPipeline() {
+        const leads = filteredLeads();
+        document.querySelector('#pipeline-board').innerHTML = leadStatuses.map((status) => {
+          const items = leads.filter((lead) => (lead.salesStatus || 'consultation_requested') === status);
+          return `
+            <div class="pipeline-column">
+              <div class="pipeline-column-title">
+                <strong>${leadStatusLabels[status]}</strong>
+                <span>${items.length}</span>
+              </div>
+              ${items.map((lead) => `
+                <div class="pipeline-card">
+                  <strong>${escapeHtml(lead.company || lead.name || lead.email || lead.id)}</strong>
+                  <span>${escapeHtml(lead.siteUrl || '')}</span>
+                  <small>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')} | ${escapeHtml(labelForBudget(lead.budgetRange))}</small>
+                </div>
+              `).join('') || '<p class="empty-state">없음</p>'}
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderLeads() {
+        const leads = filteredLeads();
+        document.querySelector('#lead-list').innerHTML = leads.length
+          ? leads.map((lead) => `
+            <div class="row dense">
+              <strong>${escapeHtml(lead.company || lead.name || lead.email || lead.id)}</strong>
+              <span>
+                <select data-lead-status="${escapeHtml(lead.id)}">
+                  ${leadStatuses.map((status) => `<option value="${status}" ${status === lead.salesStatus ? 'selected' : ''}>${leadStatusLabels[status]}</option>`).join('')}
+                </select>
+              </span>
+              <span>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')} / ${escapeHtml(labelForBudget(lead.budgetRange))}</span>
+            </div>
+          `).join('')
+          : '<p class="empty-state">조건에 맞는 리드가 없습니다.</p>';
+      }
+
+      function renderNotes() {
+        document.querySelector('#note-list').innerHTML = state.notes.length
+          ? state.notes.slice().reverse().map((note) => `
+            <div class="stack-row">
+              <strong>${escapeHtml(note.leadId || note.runId || note.id)}</strong>
+              <p>${escapeHtml(note.body || note.note || '')}</p>
+              <small>${escapeHtml(note.createdAt || '')}</small>
+            </div>
+          `).join('')
+          : '<p class="empty-state">상담 이력이 없습니다.</p>';
+      }
+
+      function renderEstimates() {
+        const filter = document.querySelector('#estimate-filter').value;
+        const estimates = filter ? state.estimates.filter((estimate) => estimate.status === filter) : state.estimates;
+        document.querySelector('#estimate-list').innerHTML = estimates.length
+          ? estimates.map((estimate) => `
+            <div class="row dense">
+              <strong>${escapeHtml(estimate.leadId || estimate.id)}</strong>
+              <span>
+                <select data-estimate-status="${escapeHtml(estimate.id)}">
+                  ${estimateStatuses.map((status) => `<option value="${status}" ${status === estimate.status ? 'selected' : ''}>${estimateStatusLabels[status]}</option>`).join('')}
+                </select>
+              </span>
+              <span>${Number(estimate.totalRange?.min || 0).toLocaleString()}-${Number(estimate.totalRange?.max || 0).toLocaleString()}원</span>
+            </div>
+          `).join('')
+          : '<p class="empty-state">조건에 맞는 견적이 없습니다.</p>';
+      }
+
+      function renderRuns() {
+        document.querySelector('#run-list').innerHTML = state.runs.length
+          ? state.runs.slice(0, 12).map((run) => `
+            <div class="row dense">
+              <strong><a href="/reports/${encodeURIComponent(run.id)}?token=${encodeURIComponent(run.shareToken || '')}">${escapeHtml(run.url)}</a></strong>
+              <span>${escapeHtml(run.pagesAnalyzed || 1)}개 페이지</span>
+              <span>점수 ${escapeHtml(run.scores?.overall ?? '-')}</span>
+            </div>
+          `).join('')
+          : '<p class="empty-state">진단 기록이 없습니다.</p>';
+      }
+
+      function renderOperations() {
+        document.querySelector('#operation-list').innerHTML = `
+          <div class="stack-row"><strong>파트너</strong><p>${state.partners.length}명 등록</p></div>
+          <div class="stack-row"><strong>배정</strong><p>${state.assignments.length}건</p></div>
+          <div class="stack-row"><strong>월간 관리</strong><p>${state.monthly.length}개 계정</p></div>
+          <div class="stack-row"><strong>SI 패키지</strong><p>${state.packages.map((pkg) => escapeHtml(pkg.name)).join(', ') || '없음'}</p></div>
+        `;
+      }
+
+      function bindStatusControls() {
+        document.querySelectorAll('[data-lead-status]').forEach((select) => {
+          select.addEventListener('change', async () => {
+            const leadId = select.getAttribute('data-lead-status');
+            await adminFetch(`/api/leads/${leadId}/status`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ nextStatus: select.value })
+            });
+            loadAdmin();
+          });
+        });
+
+        document.querySelectorAll('[data-estimate-status]').forEach((select) => {
+          select.addEventListener('change', async () => {
+            const estimateId = select.getAttribute('data-estimate-status');
+            const response = await adminFetch(`/api/estimates/${estimateId}/status`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ nextStatus: select.value })
+            });
+            if (!response.ok) alert('변경할 수 없는 견적 상태입니다.');
+            loadAdmin();
+          });
+        });
+      }
+
+      async function saveNote(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const payload = Object.fromEntries(new FormData(form));
+        if (!payload.leadId || !payload.body) return;
+        await adminFetch('/api/notes', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        form.reset();
+        loadAdmin();
+      }
+
+      async function compareRediagnosis(event) {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.currentTarget));
+        const response = await adminFetch('/api/rediagnosis/compare', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        document.querySelector('#rediagnosis-result').innerHTML = response.ok
+          ? `<div class="stack-row"><strong>점수 변화 ${escapeHtml(data.comparison.scoreDelta)}</strong><p>해결 이슈 ${escapeHtml(data.comparison.resolvedIssues.length)}개, 신규 이슈 ${escapeHtml(data.comparison.newIssues.length)}개</p></div>`
+          : `<p class="empty-state">${escapeHtml(data.message || '재진단 비교를 진행할 수 없습니다.')}</p>`;
+      }
+
+      function filteredLeads() {
+        const keyword = document.querySelector('#admin-search').value.trim().toLowerCase();
+        const grade = document.querySelector('#grade-filter').value;
+        return state.leads.filter((lead) => {
+          const haystack = `${lead.company || ''} ${lead.name || ''} ${lead.email || ''} ${lead.siteUrl || ''}`.toLowerCase();
+          const gradeOk = !grade || lead.leadScore?.grade === grade;
+          const keywordOk = !keyword || haystack.includes(keyword);
+          return gradeOk && keywordOk;
+        });
+      }
+
+      async function adminFetch(url, options = {}) {
+        const response = await fetch(url, { credentials: 'same-origin', ...options });
+        if (response.status === 401) location.href = '/admin-login.html';
+        return response;
+      }
+
+      function labelForBudget(value) {
+        return {
+          'under-100': '100만 원 이하',
+          '100-300': '100만~300만 원',
+          '300-700': '300만~700만 원',
+          'over-700': '700만 원 이상',
+          unknown: '아직 모름'
+        }[value] || value || '미입력';
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      loadAdmin();
+    </script>
+  </body>
+</html>
