@@ -18,6 +18,7 @@
 - JS 렌더링 진단은 sparse SPA shell을 감지해 렌더링 HTML과 렌더링 후 링크를 사용할 수 있습니다.
 - 성능 심화 진단은 LCP, CLS, Total Blocking Time, 리소스 수, 전체/이미지 전송량을 확인합니다.
 - 관리자 영업 UI는 영업 파이프라인, 상담 이력, 견적 상태, 재진단 히스토리 중심으로 재구성되었습니다.
+- 공개 진단 결과 화면은 핵심 요약과 우선 개선 항목을 먼저 보여주고, 전체 이슈는 그룹별 더보기와 전체 이슈 펼쳐보기로 확인하도록 재구성되었습니다.
 - 결과 화면과 공유 리포트는 페이지별 분석 근거 요약을 표시합니다.
 
 ## 실행 명령
@@ -50,7 +51,7 @@
 - `npm.cmd run test -- test\performance-ui.test.js test\diagnosis.test.js test\report-routes.test.js`: 12개 통과, 실패 0개.
 - `npm.cmd run test -- test\performance-ui.test.js test\diagnosis.test.js test\crawl-site.test.js test\admin-ui.test.js`: 23개 통과, 실패 0개.
 - `npm.cmd run test -- test/public-ui.test.js test/report-routes.test.js`: 4개 통과, 실패 0개.
-- `npm.cmd test`: 88개 통과, 실패 0개.
+- `npm.cmd test`: 89개 통과, 실패 0개.
 - 로컬 서버는 `http://localhost:3001/`에서 실행 중입니다.
 - `curl.exe -s http://localhost:3001/health`: `{ "ok": true, "service": "sitefit" }` 응답.
 - `https://www.digicore-lab.com/` 재진단 결과: 분석 페이지 8개, 주요 개선 유형 22개, 페이지별 탐지 95건, 작업지시서 22개, 종합 준비도 점수 70점.

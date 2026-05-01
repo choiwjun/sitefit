@@ -137,6 +137,25 @@ button:hover {
   background: var(--accent-strong);
 }
 
+.button {
+  display: inline-flex;
+  width: auto;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: var(--accent-strong);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -265,6 +284,259 @@ textarea {
   font-size: 13px;
 }
 
+.loading-state {
+  padding: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.result-overview {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+.score-card,
+.summary-card,
+.metric-card,
+.scope-card,
+.evidence-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.score-card {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 22px;
+  text-align: center;
+}
+
+.score-card span,
+.metric-card span,
+.scope-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.score-card strong {
+  font-size: 52px;
+  line-height: 1;
+  color: var(--ok);
+}
+
+.summary-card {
+  padding: 20px;
+}
+
+.summary-card h2 {
+  margin: 4px 0 10px;
+}
+
+.summary-card p {
+  max-width: 860px;
+}
+
+.result-actions {
+  margin-top: 16px;
+}
+
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.metric-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 78px;
+  padding: 14px;
+}
+
+.metric-card strong {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.readable-section {
+  margin-bottom: 16px;
+}
+
+.section-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.score-breakdown {
+  display: grid;
+  gap: 10px;
+}
+
+.score-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 42px;
+  gap: 10px;
+  align-items: center;
+}
+
+.score-bar {
+  height: 10px;
+  overflow: hidden;
+  background: var(--soft);
+  border-radius: 999px;
+}
+
+.score-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.priority-list,
+.readable-issue-list {
+  display: grid;
+  gap: 10px;
+}
+
+.issue-group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.issue-group-card {
+  padding: 14px;
+}
+
+.issue-group-header,
+.issue-card-title,
+.issue-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.issue-group-header {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.issue-group-header span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.readable-issue-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.readable-issue-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.issue-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.issue-meta {
+  flex-wrap: wrap;
+}
+
+.issue-meta span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.more-issues {
+  margin-top: 10px;
+}
+
+.more-issues summary,
+.all-issues-details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.scope-grid,
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scope-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.evidence-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.evidence-card a {
+  overflow-wrap: anywhere;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.evidence-card dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.evidence-card dl div {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 8px;
+}
+
+.evidence-card dt {
+  color: var(--muted);
+}
+
+.evidence-card dd {
+  margin: 0;
+}
+
+.all-issues-details {
+  margin-top: 16px;
+}
+
+.detail-note {
+  color: var(--muted);
+}
+
 .table-list {
   display: grid;
   gap: 8px;
@@ -337,11 +609,20 @@ article p,
   .hero,
   .hero.compact,
   .admin-hero,
+  .result-overview,
   .grid,
   .toolbar-panel,
   .admin-workspace,
+  .metric-strip,
+  .issue-group-grid,
+  .scope-grid,
+  .evidence-grid,
   .row,
   .lead-form {
+    grid-template-columns: 1fr;
+  }
+
+  .score-row {
     grid-template-columns: 1fr;
   }
 
