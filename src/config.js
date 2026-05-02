@@ -3,10 +3,11 @@ export function loadConfig(env = process.env) {
     port: numberFromEnv(env.PORT, 3000),
     adminToken: env.ADMIN_TOKEN || '',
     crawler: {
-      maxPages: numberFromEnv(env.CRAWLER_MAX_PAGES, 10),
+      maxPages: numberFromEnv(env.CRAWLER_MAX_PAGES, 50),
       maxDepth: numberFromEnv(env.CRAWLER_MAX_DEPTH, 2),
       maxBytes: numberFromEnv(env.CRAWLER_MAX_BYTES, 512000),
       maxQueryParams: numberFromEnv(env.CRAWLER_MAX_QUERY_PARAMS, 8),
+      maxLinkChecks: numberFromEnv(env.CRAWLER_MAX_LINK_CHECKS, 100),
       renderJavaScript: env.CRAWLER_RENDER_JS || 'auto',
       renderer: env.CRAWLER_RENDERER || 'none'
     },

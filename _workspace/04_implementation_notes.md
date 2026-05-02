@@ -45,6 +45,17 @@
 - 작업지시서는 중복 카드 대신 `영향 URL N개`와 대표 근거를 표시합니다.
 - 공개 결과 화면과 공유 리포트에 `분석 근거 요약`을 추가해 페이지별 유형, H1/H2 개수, 본문량, 질문형 제목/직접 답변 수, FAQ schema, 엔티티 schema, 인용 문장 수, 외부 신뢰 링크 수, 내부/외부 링크 수, 빈 앵커 수, 이미지 alt/크기 속성 누락, 렌더 차단 CSS 수, 동기 script 수, lazy 미적용 이미지 수, schema, viewport, robots 상태를 보여줍니다.
 - 공개 결과 화면과 공유 리포트의 근거 요약에 LCP, CLS, TBT, 전송량을 추가했습니다.
+- 무료 진단 경쟁력 강화를 위해 기본 크롤 범위를 10페이지에서 50페이지로 올리고, 링크 상태 점검 기본 상한을 100개로 설정했습니다.
+- `src/server.js`는 진단 run에 `analysisCoverage`를 포함해 분석 페이지 수, 발견 URL, 수집 제외 URL, 링크 점검 수, JS 렌더링 페이지 수, 최대 수집 범위를 기록합니다.
+- 공개 결과 화면과 공유 리포트는 `분석률`, `수집 제외`, `링크 점검`, `JS 렌더링`을 별도 신뢰 지표로 노출합니다.
+- `src/diagnosis/analyze-html.js`가 접근성 기초 항목으로 라벨 없는 폼 입력, 접근성 이름 없는 버튼을 진단하고, HTTPS 페이지의 `http://` 혼합 콘텐츠를 탐지합니다.
+- `src/diagnosis/link-status.js`가 status fetcher에서 `redirectCount` 또는 `redirectChain`을 제공하는 경우 리다이렉트 체인 과다 이슈를 별도 생성합니다.
+- `src/diagnosis/analyze-html.js`가 문자 인코딩 선언 누락, 중복 `id` 속성, 안전하지 않은 form action, iframe title 누락을 추가 진단합니다.
+- `src/diagnosis/web-quality.js`를 추가해 현재 수집된 진단 근거에서 성능, 접근성, 보안 관행, SEO, 종합 웹 품질 점수를 계산합니다. 실제 Lighthouse/PageSpeed 점수라고 주장하지 않고 `sitefit-rules` 출처를 명시합니다.
+- `src/server.js`는 진단 run에 `webQualityScores`를 포함하고, 공개 결과 화면과 공유 리포트는 `웹 품질 점수` 섹션으로 노출합니다.
+- PageSpeed 외부 API 연동은 보류했습니다. 현재 단계에서는 외부 API 의존성보다 로컬 진단 근거와 작업 범위 설명의 신뢰도를 높이는 것이 우선입니다.
+- `src/diagnosis/html-parser.js`를 추가해 quoted/unquoted/boolean/mixed-case HTML 속성을 일관되게 읽습니다.
+- `src/diagnosis/analyze-html.js`의 meta, canonical, viewport/lang/charset, image, link, form, iframe 속성 추출이 로컬 parser를 사용하도록 변경되었습니다.
 - `public/admin.html`을 영업팀 업무 흐름 중심으로 재구성해 영업 파이프라인 보드, 검색/필터, 상담 이력 저장, 견적 상태 변경, 재진단 비교, 진단 기록, 운영 리소스를 한 화면에서 확인할 수 있게 했습니다.
 - `public/app.js`의 진단 결과 화면을 긴 목록형 출력에서 핵심 요약, 지표 카드, 영역별 점수, 우선 개선 항목, 예상 작업 범위, 진단 영역별 결과, 페이지별 분석 근거 요약, 전체 이슈 펼쳐보기 구조로 재구성했습니다.
 - 전체 이슈는 계속 공개하되 첫 화면에서는 우선순위와 그룹별 요약을 먼저 보여주고, 나머지는 영역별 더보기와 전체 이슈 접기/펼치기로 확인하도록 변경했습니다.

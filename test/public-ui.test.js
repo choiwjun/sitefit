@@ -42,7 +42,16 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /진단 영역별 결과/);
   assert.match(script, /페이지별 분석 근거/);
   assert.match(script, /전체 이슈 펼쳐보기/);
+  assert.match(script, /분석률/);
+  assert.match(script, /수집 제외/);
+  assert.match(script, /링크 점검/);
+  assert.match(script, /JS 렌더링/);
+  assert.match(script, /웹 품질 점수/);
+  assert.match(script, /접근성/);
+  assert.match(script, /보안 관행/);
   assert.match(script, /renderIssueGroup/);
+  assert.match(script, /renderAnalysisCoverage/);
+  assert.match(script, /renderWebQualityScores/);
   assert.match(script, /renderPriorityIssues/);
   assert.match(css, /\.result-overview/);
   assert.match(css, /\.issue-group-grid/);

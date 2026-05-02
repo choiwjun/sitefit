@@ -24,6 +24,8 @@ export function renderReportHtml(run) {
         <p>${escapeHtml(report.executiveSummary || run.summary || '')}</p>
         ${run.businessCategory ? `<p><small>추정 업종 카테고리: ${escapeHtml(run.businessCategory.label)}${run.businessCategory.pageCount ? ` (${escapeHtml(run.businessCategory.pageCount)}개 페이지 근거)` : ''}</small></p>` : ''}
         <p><small>주요 개선 유형 ${escapeHtml(issueSummary.uniqueIssueCount)}개 | 페이지별 탐지 ${escapeHtml(issueSummary.rawIssueCount)}건 | 분석 페이지 ${escapeHtml(run.pagesAnalyzed || 0)}개</small></p>
+        ${renderWebQualityScores(run.webQualityScores)}
+        ${renderAnalysisCoverage(run.analysisCoverage)}
         <p>${escapeHtml(report.riskNotice || '')}</p>
       </section>
       ${renderEvidenceSummary(run.pageResults || [])}
@@ -54,6 +56,23 @@ export function renderReportHtml(run) {
     </main>
   </body>
 </html>`;
+}
+
+function renderWebQualityScores(scores) {
+  if (!scores) return '';
+  return `
+        <h2>웹 품질 점수</h2>
+        <p><small>성능 ${escapeHtml(scores.performance ?? 0)} | 접근성 ${escapeHtml(scores.accessibility ?? 0)} | 보안 관행 ${escapeHtml(scores.bestPractices ?? 0)} | SEO ${escapeHtml(scores.seo ?? 0)} | 종합 ${escapeHtml(scores.overall ?? 0)}</small></p>
+        <p><small>현재 수집된 진단 근거로 계산한 Lighthouse-style 참고 점수이며 실제 PageSpeed Insights 점수와 동일하다고 보장하지 않습니다.</small></p>
+  `;
+}
+
+function renderAnalysisCoverage(coverage) {
+  if (!coverage) return '';
+  return `
+        <p><small>분석률 ${escapeHtml(coverage.analysisRate ?? 0)}% | 발견 URL ${escapeHtml(coverage.discoveredUrls ?? 0)}개 | 수집 제외 ${escapeHtml(coverage.skippedUrls ?? 0)}개 | 링크 점검 ${escapeHtml(coverage.checkedLinks ?? 0)}/${escapeHtml(coverage.maxLinkChecks ?? 0)}개 | JS 렌더링 ${escapeHtml(coverage.renderedPages ?? 0)}개</small></p>
+        <p><small>수집 범위: 최대 ${escapeHtml(coverage.maxPages ?? 0)}페이지, 깊이 ${escapeHtml(coverage.maxDepth ?? 0)}, 페이지당 ${escapeHtml(formatBytes(coverage.maxBytes ?? 0))}</small></p>
+  `;
 }
 
 function renderEvidenceSummary(pageResults) {
@@ -161,4 +180,11 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
+  if (value >= 1000) return `${Math.round(value / 1000)}KB`;
+  return `${value}B`;
 }

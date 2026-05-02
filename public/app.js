@@ -94,11 +94,70 @@ function renderResult(run) {
     </section>
 
     ${renderScoreBreakdown(run.scores || {})}
+    ${renderWebQualityScores(run.webQualityScores)}
+    ${renderAnalysisCoverage(run.analysisCoverage)}
     ${renderPriorityIssues(allIssues)}
     ${renderWorkScopes(workScopes)}
     ${renderIssueGroups(allIssues)}
     ${renderEvidenceSummary(run.pageResults || [])}
     ${renderAllIssuesDetails(allIssues)}
+  `;
+}
+
+function renderWebQualityScores(scores) {
+  if (!scores) return '';
+  const items = [
+    ['performance', '성능'],
+    ['accessibility', '접근성'],
+    ['bestPractices', '보안 관행'],
+    ['seo', 'SEO']
+  ];
+
+  return `
+    <section class="panel readable-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Quality</p>
+          <h3>웹 품질 점수</h3>
+        </div>
+        <span class="section-count">SiteFit rules</span>
+      </div>
+      <div class="score-breakdown">
+        ${items.map(([key, label]) => {
+          const value = Number(scores[key] ?? 0);
+          return `
+            <div class="score-row">
+              <span>${label}</span>
+              <div class="score-bar"><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
+              <strong>${value}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <p class="detail-note">현재 수집된 진단 근거로 계산한 Lighthouse-style 참고 점수입니다. 실제 PageSpeed Insights 점수와 동일하다고 보장하지 않습니다.</p>
+    </section>
+  `;
+}
+
+function renderAnalysisCoverage(coverage) {
+  if (!coverage) return '';
+  return `
+    <section class="panel readable-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Coverage</p>
+          <h3>분석률과 수집 범위</h3>
+        </div>
+      </div>
+      <div class="metric-strip">
+        ${renderMetric('분석률', `${coverage.analysisRate ?? 0}%`)}
+        ${renderMetric('발견 URL', `${coverage.discoveredUrls ?? 0}개`)}
+        ${renderMetric('수집 제외', `${coverage.skippedUrls ?? 0}개`)}
+        ${renderMetric('링크 점검', `${coverage.checkedLinks ?? 0}/${coverage.maxLinkChecks ?? 0}개`)}
+        ${renderMetric('JS 렌더링', `${coverage.renderedPages ?? 0}개`)}
+      </div>
+      <p class="detail-note">최대 ${escapeHtml(coverage.maxPages ?? 0)}페이지, 깊이 ${escapeHtml(coverage.maxDepth ?? 0)}, 페이지당 ${escapeHtml(formatBytes(coverage.maxBytes ?? 0))} 범위에서 안전하게 진단했습니다.</p>
+    </section>
   `;
 }
 
@@ -405,4 +464,11 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
+  if (value >= 1000) return `${Math.round(value / 1000)}KB`;
+  return `${value}B`;
 }

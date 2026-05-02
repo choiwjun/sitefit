@@ -33,6 +33,17 @@ const ISSUE_DEFS = {
     workType: 'technical-seo',
     expectedScope: 'small',
     recommendedAction: '리다이렉트를 거치는 링크는 가능하면 최종 도착 URL로 직접 연결합니다.'
+  },
+  redirectChain: {
+    layer: 'technical-seo',
+    name: '리다이렉트 체인 과다',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small',
+    recommendedAction: '여러 단계를 거치는 리다이렉트 링크를 최종 URL로 바로 연결하거나 중간 리다이렉트를 정리합니다.'
   }
 };
 
@@ -43,6 +54,7 @@ export async function analyzeLinkStatus({ rootUrl, pageResults = [], fetcher, ma
   const broken = [];
   const serverErrors = [];
   const redirects = [];
+  const redirectChains = [];
 
   for (const link of links) {
     const validation = validateCrawlUrl(link);
@@ -62,6 +74,9 @@ export async function analyzeLinkStatus({ rootUrl, pageResults = [], fetcher, ma
       } else if (isRedirect(result)) {
         redirects.push(result);
       }
+      if (hasRedirectChain(result)) {
+        redirectChains.push(result);
+      }
     } catch (error) {
       checkedLinks.push({ url: validation.url, status: 0, error: error.message });
       broken.push({ url: validation.url, status: 0, error: error.message });
@@ -75,6 +90,7 @@ export async function analyzeLinkStatus({ rootUrl, pageResults = [], fetcher, ma
     issues: [
       ...groupIssue(broken, ISSUE_DEFS.brokenLink, '4xx 또는 접근 실패 링크'),
       ...groupIssue(serverErrors, ISSUE_DEFS.serverError, '5xx 서버 오류 링크'),
+      ...groupIssue(redirectChains, ISSUE_DEFS.redirectChain, '2회 이상 리다이렉트되는 링크'),
       ...groupIssue(redirects, ISSUE_DEFS.redirectedLink, '리다이렉트되는 링크')
     ]
   };
@@ -95,13 +111,19 @@ async function checkLink(url, fetcher) {
   return {
     url,
     finalUrl: result.url || url,
-    status: Number(result.status || 0)
+    status: Number(result.status || 0),
+    redirectCount: Number(result.redirectCount || 0),
+    redirectChain: Array.isArray(result.redirectChain) ? result.redirectChain : []
   };
 }
 
 function isRedirect(result) {
   if ([301, 302, 303, 307, 308].includes(result.status)) return true;
   return Boolean(result.finalUrl && normalizeUrl(result.finalUrl) !== normalizeUrl(result.url));
+}
+
+function hasRedirectChain(result) {
+  return Number(result.redirectCount || 0) > 1 || (Array.isArray(result.redirectChain) && result.redirectChain.length > 2);
 }
 
 function groupIssue(items, definition, label) {

@@ -1,3 +1,5 @@
+import { attr, findTags } from './html-parser.js';
+
 const ISSUE_DEFS = {
   metaDescription: {
     layer: 'technical-seo',
@@ -398,6 +400,116 @@ const ISSUE_DEFS = {
     owner: 'publisher',
     workType: 'technical-seo',
     expectedScope: 'medium'
+  },
+  formLabels: {
+    layer: 'technical-seo',
+    name: '폼 입력 라벨 누락',
+    impact: 'medium',
+    difficulty: 'easy',
+    confidence: 'high',
+    owner: 'publisher',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  buttonName: {
+    layer: 'technical-seo',
+    name: '버튼 접근성 이름 누락',
+    impact: 'low',
+    difficulty: 'easy',
+    confidence: 'high',
+    owner: 'publisher',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  mixedContent: {
+    layer: 'technical-seo',
+    name: 'HTTPS 혼합 콘텐츠 발견',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  charset: {
+    layer: 'technical-seo',
+    name: '문자 인코딩 선언 누락',
+    impact: 'low',
+    difficulty: 'easy',
+    confidence: 'high',
+    owner: 'publisher',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  duplicateId: {
+    layer: 'technical-seo',
+    name: '중복 id 속성 발견',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  insecureFormAction: {
+    layer: 'technical-seo',
+    name: '안전하지 않은 폼 전송 주소',
+    impact: 'high',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  iframeTitle: {
+    layer: 'technical-seo',
+    name: 'iframe title 누락',
+    impact: 'low',
+    difficulty: 'easy',
+    confidence: 'high',
+    owner: 'publisher',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  canonicalDuplicate: {
+    layer: 'technical-seo',
+    name: 'canonical 중복 선언',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  robotsNofollow: {
+    layer: 'technical-seo',
+    name: 'robots nofollow 설정 확인 필요',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  hreflangXDefault: {
+    layer: 'technical-seo',
+    name: 'hreflang x-default 누락',
+    impact: 'low',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'small'
+  },
+  thirdPartyScripts: {
+    layer: 'technical-seo',
+    name: '서드파티 스크립트 점검 필요',
+    impact: 'medium',
+    difficulty: 'normal',
+    confidence: 'high',
+    owner: 'developer',
+    workType: 'technical-seo',
+    expectedScope: 'medium'
   }
 };
 
@@ -459,8 +571,12 @@ export function analyzeHtml({ url, html, industry, goal, performance }) {
     issues.push(issue(url, ISSUE_DEFS.contactChannel, '전화, 이메일, 메신저, 문의 폼 등 실제 연락 수단이 명확하게 확인되지 않았습니다.'));
   }
 
-  if (!/<link\b[^>]*rel=["']canonical["']/i.test(html)) {
+  if (metadata.technicalBasics.canonicalCount === 0) {
     issues.push(issue(url, ISSUE_DEFS.canonical, 'canonical link 태그가 확인되지 않았습니다.'));
+  }
+
+  if (metadata.technicalBasics.canonicalCount > 1) {
+    issues.push(issue(url, ISSUE_DEFS.canonicalDuplicate, `canonical link 태그가 ${metadata.technicalBasics.canonicalCount}개 확인되었습니다.`));
   }
 
   if (metadata.canonical && hasExternalCanonical(url, metadata.canonical)) {
@@ -471,12 +587,28 @@ export function analyzeHtml({ url, html, industry, goal, performance }) {
     issues.push(issue(url, ISSUE_DEFS.robotsNoindex, `meta robots에 noindex가 포함되어 색인 제외될 수 있습니다. 현재 값: ${metadata.technicalBasics.robots}`));
   }
 
+  if (metadata.technicalBasics.hasRobotsNofollow) {
+    issues.push(issue(url, ISSUE_DEFS.robotsNofollow, `meta robots에 nofollow가 포함되어 링크 신호 전달이 제한될 수 있습니다. 현재 값: ${metadata.technicalBasics.robots}`));
+  }
+
+  if (metadata.internationalization.hreflangCount > 0 && metadata.internationalization.missingXDefault) {
+    issues.push(issue(url, ISSUE_DEFS.hreflangXDefault, `hreflang alternate가 ${metadata.internationalization.hreflangCount}개 있지만 x-default가 없습니다.`));
+  }
+
+  if (metadata.thirdPartyScripts.count >= 2) {
+    issues.push(issue(url, ISSUE_DEFS.thirdPartyScripts, `외부 도메인 스크립트가 ${metadata.thirdPartyScripts.count}개 확인되었습니다. 호스트: ${metadata.thirdPartyScripts.hosts.join(', ')}`));
+  }
+
   if (!metadata.technicalBasics.hasViewport) {
     issues.push(issue(url, ISSUE_DEFS.viewport, '모바일 화면 기준 viewport meta 태그가 확인되지 않았습니다.'));
   }
 
   if (!metadata.technicalBasics.hasLang) {
     issues.push(issue(url, ISSUE_DEFS.lang, 'html 태그의 lang 속성이 확인되지 않았습니다.'));
+  }
+
+  if (!metadata.technicalBasics.hasCharset) {
+    issues.push(issue(url, ISSUE_DEFS.charset, 'head 영역에서 charset 선언이 확인되지 않았습니다.'));
   }
 
   if (!/<script\b[^>]*type=["']application\/ld\+json["']/i.test(html)) {
@@ -513,6 +645,30 @@ export function analyzeHtml({ url, html, industry, goal, performance }) {
 
   if (metadata.linkStats.emptyAnchorCount > 0) {
     issues.push(issue(url, ISSUE_DEFS.emptyAnchor, `텍스트나 보조 라벨이 없는 링크가 ${metadata.linkStats.emptyAnchorCount}개 확인되었습니다.`));
+  }
+
+  if (metadata.formStats.unlabeledControls > 0) {
+    issues.push(issue(url, ISSUE_DEFS.formLabels, `label, aria-label, aria-labelledby 또는 title이 없는 입력 필드가 ${metadata.formStats.unlabeledControls}개 확인되었습니다.`));
+  }
+
+  if (metadata.accessibilityStats.emptyButtonCount > 0) {
+    issues.push(issue(url, ISSUE_DEFS.buttonName, `텍스트나 aria-label이 없는 버튼이 ${metadata.accessibilityStats.emptyButtonCount}개 확인되었습니다.`));
+  }
+
+  if (metadata.technicalBasics.mixedContentCount > 0) {
+    issues.push(issue(url, ISSUE_DEFS.mixedContent, `HTTPS 페이지에서 http:// 리소스 또는 링크가 ${metadata.technicalBasics.mixedContentCount}개 확인되었습니다.`));
+  }
+
+  if (metadata.accessibilityStats.duplicateIdCount > 0) {
+    issues.push(issue(url, ISSUE_DEFS.duplicateId, `같은 id 값을 여러 번 사용하는 항목이 ${metadata.accessibilityStats.duplicateIdCount}개 확인되었습니다.`));
+  }
+
+  if (metadata.formStats.insecureActionCount > 0) {
+    issues.push(issue(url, ISSUE_DEFS.insecureFormAction, `HTTPS 페이지에서 http:// 주소로 제출되는 form이 ${metadata.formStats.insecureActionCount}개 확인되었습니다.`));
+  }
+
+  if (metadata.accessibilityStats.iframeWithoutTitleCount > 0) {
+    issues.push(issue(url, ISSUE_DEFS.iframeTitle, `title 속성이 없는 iframe이 ${metadata.accessibilityStats.iframeWithoutTitleCount}개 확인되었습니다.`));
   }
 
   if (metadata.performanceStats.blockingStylesheets >= 3) {
@@ -631,14 +787,25 @@ function recommendationFor(name) {
     'CLS 개선 필요': '이미지와 광고/임베드 영역의 고정 크기를 지정하고 동적 콘텐츠 삽입으로 레이아웃이 밀리지 않도록 조정합니다.',
     'Total Blocking Time 개선 필요': '초기 실행 JavaScript를 분할하고 불필요한 서드파티 스크립트와 긴 메인스레드 작업을 줄입니다.',
     '페이지 전송량 과다': '불필요한 JS/CSS, 중복 라이브러리, 대용량 리소스를 줄이고 압축/캐시 전략을 점검합니다.',
-    '이미지 전송량 과다': '주요 이미지를 WebP/AVIF 등 적절한 포맷과 크기로 최적화하고 반응형 이미지 srcset 적용을 검토합니다.'
+    '이미지 전송량 과다': '주요 이미지를 WebP/AVIF 등 적절한 포맷과 크기로 최적화하고 반응형 이미지 srcset 적용을 검토합니다.',
+    '폼 입력 라벨 누락': '입력 필드마다 명확한 label을 연결하거나 aria-label/aria-labelledby로 목적을 제공합니다.',
+    '버튼 접근성 이름 누락': '아이콘 또는 빈 버튼에는 보조기기가 읽을 수 있는 텍스트, aria-label 또는 title을 추가합니다.',
+    'HTTPS 혼합 콘텐츠 발견': 'HTTPS 페이지에서 불러오는 http:// 리소스와 링크를 https:// 주소로 교체합니다.',
+    '문자 인코딩 선언 누락': 'head 영역에 <meta charset="utf-8"> 선언을 추가해 문자 해석 오류 가능성을 줄입니다.',
+    '중복 id 속성 발견': '동일 id를 사용하는 요소를 고유한 id로 분리하고 label, anchor, script 참조를 함께 갱신합니다.',
+    '안전하지 않은 폼 전송 주소': 'HTTPS 페이지의 form action은 https:// 주소 또는 same-origin 상대 경로로 전송되도록 수정합니다.',
+    'iframe title 누락': '지도, 영상, 예약 위젯 등 iframe에는 내용을 설명하는 title 속성을 추가합니다.',
+    'canonical 중복 선언': '페이지당 canonical은 1개만 남기고 대표 URL 기준을 명확히 정리합니다.',
+    'robots nofollow 설정 확인 필요': '공개 검색 유입이 필요한 페이지라면 nofollow 의도를 확인하고 불필요한 경우 제거합니다.',
+    'hreflang x-default 누락': '다국어 alternate를 쓰는 페이지에는 기본 대체 URL을 x-default로 함께 지정합니다.',
+    '서드파티 스크립트 점검 필요': '태그 매니저, 광고, 추적 스크립트의 필요성과 로딩 방식을 점검하고 초기 렌더링에 불필요한 항목은 지연합니다.'
   };
 
   return map[name] ?? 'Review this issue during consultation.';
 }
 
 function hasMetaDescription(html) {
-  return /<meta\b[^>]*name=["']description["'][^>]*content=["'][^"']{20,}["']/i.test(html);
+  return extractMetaContent(html, 'description').length >= 20;
 }
 
 function hasFaq(html, text) {
@@ -673,8 +840,11 @@ function hasGenericTopic(html, text) {
 }
 
 function hasImageWithoutAlt(html) {
-  const images = html.match(/<img\b[^>]*>/gi) || [];
-  return images.some((tag) => !/\balt=["'][^"']*["']/i.test(tag));
+  const images = findTags(html, 'img');
+  return images.some((tag) => {
+    const value = attr(tag, 'alt');
+    return value === undefined || !String(value).trim();
+  });
 }
 
 function hasTitleQuality(title) {
@@ -801,7 +971,8 @@ function extractMetadata(url, html, text, performance) {
   const title = cleanText(firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i));
   const h1 = cleanText(firstMatch(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i));
   const metaDescription = cleanText(extractMetaContent(html, 'description'));
-  const canonical = cleanText(firstMatch(html, /<link\b(?=[^>]*rel=["']canonical["'])(?=[^>]*href=["']([^"']+)["'])[^>]*>/i));
+  const canonicalLinks = canonicalLinksFor(html);
+  const canonical = cleanText(canonicalLinks[0]?.href || '');
   const schemaTypes = extractSchemaTypes(html);
   const schemaValidation = validateJsonLd(html);
   const outgoingLinks = extractOutgoingLinks(html, url);
@@ -809,11 +980,15 @@ function extractMetadata(url, html, text, performance) {
   const headingStats = headingStatsFor(html);
   const linkStats = linkStatsFor(html, url);
   const social = socialMetadataFor(html);
-  const technicalBasics = technicalBasicsFor(html, schemaValidation.invalidCount);
+  const internationalization = internationalizationFor(html);
+  const thirdPartyScripts = thirdPartyScriptsFor(html, url);
+  const technicalBasics = technicalBasicsFor(url, html, schemaValidation.invalidCount, canonicalLinks);
   const answerReadiness = answerReadinessFor(html, schemaTypes);
   const geoReadiness = geoReadinessFor({ html, text, schemaTypes, outgoingLinks, url, title, h1, metaDescription });
   const performanceStats = performanceStatsFor(html);
   const runtimePerformance = runtimePerformanceFor(performance);
+  const formStats = formStatsFor(html);
+  const accessibilityStats = accessibilityStatsFor(html);
 
   return {
     title,
@@ -828,6 +1003,8 @@ function extractMetadata(url, html, text, performance) {
     imageStats,
     headingStats,
     social,
+    internationalization,
+    thirdPartyScripts,
     technicalBasics,
     answerReadiness,
     geoReadiness,
@@ -835,12 +1012,13 @@ function extractMetadata(url, html, text, performance) {
     runtimePerformance,
     wordCount: wordCountFor(text),
     contactSignals: contactSignalsFor(html, text),
-    formStats: formStatsFor(html)
+    formStats,
+    accessibilityStats
   };
 }
 
 function extractMetaContent(html, name) {
-  const tags = html.match(/<meta\b[^>]*>/gi) || [];
+  const tags = findTags(html, 'meta');
   for (const tag of tags) {
     const tagName = attr(tag, 'name') || attr(tag, 'property');
     if (String(tagName || '').toLowerCase() === name.toLowerCase()) {
@@ -848,6 +1026,74 @@ function extractMetaContent(html, name) {
     }
   }
   return '';
+}
+
+function canonicalLinksFor(html) {
+  return findTags(html, 'link')
+    .filter((tag) => relTokensFor(tag).includes('canonical'))
+    .map((tag) => ({
+      href: attr(tag, 'href') || ''
+    }))
+    .filter((item) => item.href);
+}
+
+function extractCanonicalHref(html) {
+  return canonicalLinksFor(html)[0]?.href || '';
+}
+
+function internationalizationFor(html) {
+  const tags = findTags(html, 'link');
+  const alternates = tags
+    .filter((tag) => relTokensFor(tag).includes('alternate') && attr(tag, 'hreflang'))
+    .map((tag) => ({
+      hreflang: String(attr(tag, 'hreflang') || '').toLowerCase(),
+      href: attr(tag, 'href') || ''
+    }));
+
+  return {
+    hreflangCount: alternates.length,
+    hreflangs: [...new Set(alternates.map((item) => item.hreflang).filter(Boolean))],
+    missingXDefault: alternates.length > 0 && !alternates.some((item) => item.hreflang === 'x-default')
+  };
+}
+
+function thirdPartyScriptsFor(html, baseUrl) {
+  const hosts = new Set();
+  const urls = [];
+  let base;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    base = null;
+  }
+
+  for (const tag of findTags(html, 'script')) {
+    const src = attr(tag, 'src');
+    if (!src) continue;
+    try {
+      const parsed = new URL(src, base || undefined);
+      if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+      if (base && parsed.hostname === base.hostname) continue;
+      if (!base && !/^https?:\/\//i.test(src)) continue;
+      hosts.add(parsed.hostname);
+      urls.push(parsed.toString());
+    } catch {
+      // Ignore malformed script src values.
+    }
+  }
+
+  return {
+    count: urls.length,
+    hosts: [...hosts].sort(),
+    urls
+  };
+}
+
+function relTokensFor(tag) {
+  return String(attr(tag, 'rel') || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 function extractSchemaTypes(html) {
@@ -918,7 +1164,7 @@ function extractOutgoingLinks(html, baseUrl) {
 }
 
 function imageStatsFor(html) {
-  const images = html.match(/<img\b[^>]*>/gi) || [];
+  const images = findTags(html, 'img');
   const missingAlt = images.filter((tag) => {
     const value = attr(tag, 'alt');
     return value === undefined || !String(value).trim();
@@ -934,9 +1180,9 @@ function imageStatsFor(html) {
 }
 
 function performanceStatsFor(html) {
-  const stylesheetTags = html.match(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi) || [];
-  const scriptTags = html.match(/<script\b[^>]*src=["'][^"']+["'][^>]*>/gi) || [];
-  const imageTags = html.match(/<img\b[^>]*>/gi) || [];
+  const stylesheetTags = findTags(html, 'link').filter((tag) => String(attr(tag, 'rel') || '').toLowerCase() === 'stylesheet');
+  const scriptTags = findTags(html, 'script').filter((tag) => attr(tag, 'src'));
+  const imageTags = findTags(html, 'img');
 
   const blockingStylesheets = stylesheetTags.filter((tag) => {
     const media = attr(tag, 'media');
@@ -1043,14 +1289,30 @@ function socialMetadataFor(html) {
   };
 }
 
-function technicalBasicsFor(html, invalidJsonLdCount) {
+function technicalBasicsFor(url, html, invalidJsonLdCount, canonicalLinks = []) {
+  const htmlTag = findTags(html, 'html')[0] || '';
+  const charset = charsetFor(html);
+  const robots = cleanText(extractMetaContent(html, 'robots'));
   return {
-    hasLang: /<html\b[^>]*\blang=["'][^"']+["']/i.test(html),
-    hasViewport: /<meta\b[^>]*name=["']viewport["']/i.test(html),
-    charset: cleanText(firstMatch(html, /<meta\b[^>]*charset=["']?([^"'\s>]+)/i)),
-    robots: cleanText(extractMetaContent(html, 'robots')),
-    invalidJsonLdCount
+    hasLang: Boolean(attr(htmlTag, 'lang')),
+    hasViewport: Boolean(extractMetaContent(html, 'viewport')),
+    charset,
+    hasCharset: Boolean(charset),
+    robots,
+    hasRobotsNofollow: /(?:^|,|\s)nofollow(?:$|,|\s)/i.test(robots),
+    canonicalCount: canonicalLinks.length,
+    invalidJsonLdCount,
+    mixedContentCount: mixedContentCountFor(url, html)
   };
+}
+
+function charsetFor(html) {
+  const tags = findTags(html, 'meta');
+  for (const tag of tags) {
+    const value = attr(tag, 'charset');
+    if (value !== undefined) return cleanText(value);
+  }
+  return '';
 }
 
 function wordCountFor(text) {
@@ -1068,10 +1330,81 @@ function contactSignalsFor(html, text) {
 }
 
 function formStatsFor(html) {
+  const controls = formControlsFor(html);
   return {
     forms: (html.match(/<form\b/gi) || []).length,
-    inputs: (html.match(/<(input|textarea|select)\b/gi) || []).length
+    inputs: (html.match(/<(input|textarea|select)\b/gi) || []).length,
+    controls: controls.length,
+    unlabeledControls: controls.filter((tag) => !hasAccessibleControlLabel(html, tag)).length,
+    insecureActionCount: insecureFormActionCountFor(html)
   };
+}
+
+function accessibilityStatsFor(html) {
+  const buttonTags = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/gi) || [];
+  const inputButtons = (html.match(/<input\b[^>]*>/gi) || [])
+    .filter((tag) => /type=["']?(button|submit|reset|image)\b/i.test(tag));
+  return {
+    duplicateIdCount: duplicateIdCountFor(html),
+    iframeWithoutTitleCount: iframeWithoutTitleCountFor(html),
+    emptyButtonCount: [
+      ...buttonTags.filter((tag) => !hasButtonName(tag)),
+      ...inputButtons.filter((tag) => !attr(tag, 'value') && !attr(tag, 'aria-label') && !attr(tag, 'title'))
+    ].length
+  };
+}
+
+function insecureFormActionCountFor(html) {
+  const forms = html.match(/<form\b[^>]*>/gi) || [];
+  return forms.filter((tag) => /^http:\/\//i.test(String(attr(tag, 'action') || ''))).length;
+}
+
+function duplicateIdCountFor(html) {
+  const ids = (html.match(/\bid=["'][^"']+["']/gi) || [])
+    .map((item) => item.replace(/^\s*id=["']|["']$/gi, '').trim())
+    .filter(Boolean);
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const id of ids) {
+    if (seen.has(id)) duplicates.add(id);
+    seen.add(id);
+  }
+  return duplicates.size;
+}
+
+function iframeWithoutTitleCountFor(html) {
+  const iframes = html.match(/<iframe\b[^>]*>/gi) || [];
+  return iframes.filter((tag) => !attr(tag, 'title') && !attr(tag, 'aria-label')).length;
+}
+
+function formControlsFor(html) {
+  return (html.match(/<(input|textarea|select)\b[^>]*>/gi) || [])
+    .filter((tag) => {
+      const type = String(attr(tag, 'type') || '').toLowerCase();
+      return !['hidden', 'button', 'submit', 'reset', 'image'].includes(type);
+    });
+}
+
+function hasAccessibleControlLabel(html, tag) {
+  if (attr(tag, 'aria-label') || attr(tag, 'aria-labelledby') || attr(tag, 'title')) return true;
+  const id = attr(tag, 'id');
+  if (id && new RegExp(`<label\\b[^>]*\\bfor=["']${escapeRegExp(id)}["']`, 'i').test(html)) return true;
+  return false;
+}
+
+function hasButtonName(tag) {
+  const text = cleanText(tag);
+  return Boolean(text || attr(tag, 'aria-label') || attr(tag, 'aria-labelledby') || attr(tag, 'title'));
+}
+
+function mixedContentCountFor(url, html) {
+  try {
+    if (new URL(url).protocol !== 'https:') return 0;
+  } catch {
+    return 0;
+  }
+  const tags = html.match(/<(script|link|img|iframe|source|video|audio|a)\b[^>]*(src|href)=["']http:\/\/[^"']+["'][^>]*>/gi) || [];
+  return tags.length;
 }
 
 function classifyPageType(url, searchableText) {
@@ -1133,9 +1466,8 @@ function countOccurrences(source, keyword) {
   return source.split(keyword).length - 1;
 }
 
-function attr(tag, name) {
-  const pattern = new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i');
-  return pattern.exec(tag)?.[1];
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function cleanText(value) {

@@ -130,6 +130,85 @@ test('extracts page metadata for deeper site-level analysis', () => {
   assert.equal(result.metadata.imageStats.missingAlt, 1);
 });
 
+test('extracts metadata from unquoted HTML attributes', () => {
+  const html = `
+    <!doctype html>
+    <html lang=ko>
+      <head>
+        <title>Unquoted Attribute Service</title>
+        <meta name=description content="This service page uses valid unquoted HTML attributes for parser coverage.">
+        <meta name=viewport content="width=device-width, initial-scale=1">
+        <link rel=canonical href=https://example.com/service>
+      </head>
+      <body>
+        <h1>Unquoted Attribute Service</h1>
+        <p>This page explains price, process, comparison, certification, portfolio, contact and estimate details for customers.</p>
+        <img src=/hero.jpg alt=Hero width=120 height=80 loading=lazy>
+        <a href=/contact aria-label=Contact></a>
+      </body>
+    </html>
+  `;
+
+  const result = analyzeHtml({
+    url: 'https://example.com/service',
+    html
+  });
+
+  assert.equal(result.metadata.metaDescription, 'This service page uses valid unquoted HTML attributes for parser coverage.');
+  assert.equal(result.metadata.technicalBasics.hasViewport, true);
+  assert.equal(result.metadata.technicalBasics.hasLang, true);
+  assert.equal(result.metadata.canonical, 'https://example.com/service');
+  assert.equal(result.metadata.imageStats.missingAlt, 0);
+  assert.equal(result.metadata.imageStats.missingDimensions, 0);
+  assert.equal(result.metadata.imageStats.lazyLoaded, 1);
+  assert.equal(result.metadata.linkStats.emptyAnchorCount, 0);
+  assert.equal(result.issues.some((issue) => issue.name === '메타 설명 누락'), false);
+  assert.equal(result.issues.some((issue) => issue.name === '모바일 viewport 누락'), false);
+  assert.equal(result.issues.some((issue) => issue.name === '이미지 대체텍스트 누락'), false);
+});
+
+test('detects canonical hreflang robots and third-party script risks', () => {
+  const html = `
+    <!doctype html>
+    <html lang="ko">
+      <head>
+        <title>International Service Page</title>
+        <meta charset="utf-8">
+        <meta name="description" content="International service page for customers with process pricing comparison certification portfolio contact and consultation details.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="index,nofollow">
+        <link rel="canonical" href="https://example.com/service">
+        <link rel="canonical" href="https://example.com/service?ref=duplicate">
+        <link rel="alternate" hreflang="ko" href="https://example.com/ko/service">
+        <script src="https://www.googletagmanager.com/gtm.js"></script>
+        <script src="https://connect.facebook.net/fbevents.js"></script>
+        <script src="/local.js"></script>
+      </head>
+      <body>
+        <h1>International Service Page</h1>
+        <p>This page explains price, process, comparison, certification, portfolio, contact, estimate and consultation paths for customers.</p>
+      </body>
+    </html>
+  `;
+
+  const result = analyzeHtml({
+    url: 'https://example.com/service',
+    html
+  });
+
+  assert.equal(result.metadata.technicalBasics.canonicalCount, 2);
+  assert.equal(result.metadata.technicalBasics.robots, 'index,nofollow');
+  assert.equal(result.metadata.technicalBasics.hasRobotsNofollow, true);
+  assert.equal(result.metadata.internationalization.hreflangCount, 1);
+  assert.equal(result.metadata.internationalization.missingXDefault, true);
+  assert.equal(result.metadata.thirdPartyScripts.count, 2);
+  assert.deepEqual(result.metadata.thirdPartyScripts.hosts.sort(), ['connect.facebook.net', 'www.googletagmanager.com']);
+  assert.ok(result.issues.some((issue) => issue.name === 'canonical 중복 선언'));
+  assert.ok(result.issues.some((issue) => issue.name === 'robots nofollow 설정 확인 필요'));
+  assert.ok(result.issues.some((issue) => issue.name === 'hreflang x-default 누락'));
+  assert.ok(result.issues.some((issue) => issue.name === '서드파티 스크립트 점검 필요'));
+});
+
 test('detects advanced technical content and conversion weaknesses from real HTML', () => {
   const html = `
     <!doctype html>
@@ -290,6 +369,82 @@ test('detects runtime Core Web Vitals and resource performance issues from rende
   assert.ok(result.issues.some((issue) => issue.name === 'Total Blocking Time 개선 필요'));
   assert.ok(result.issues.some((issue) => issue.name === '페이지 전송량 과다'));
   assert.ok(result.issues.some((issue) => issue.name === '이미지 전송량 과다'));
+});
+
+test('detects accessibility and mixed content gaps from markup', () => {
+  const html = `
+    <!doctype html>
+    <html lang="ko">
+      <head>
+        <title>Contact Consulting Service</title>
+        <meta name="description" content="Contact page for consulting customers with process, pricing, comparison, certification, portfolio and consultation.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="canonical" href="https://example.com/contact">
+        <script src="http://cdn.example.com/legacy.js"></script>
+      </head>
+      <body>
+        <h1>Contact Consulting Service</h1>
+        <p>This page explains price, process, comparison, certification, portfolio, contact, estimate and consultation paths for customers.</p>
+        <form>
+          <input type="text" name="name">
+          <input type="email" name="email" aria-label="이메일">
+          <button type="submit"></button>
+        </form>
+      </body>
+    </html>
+  `;
+
+  const result = analyzeHtml({
+    url: 'https://example.com/contact',
+    html
+  });
+
+  assert.equal(result.metadata.formStats.controls, 2);
+  assert.equal(result.metadata.formStats.unlabeledControls, 1);
+  assert.equal(result.metadata.accessibilityStats.emptyButtonCount, 1);
+  assert.equal(result.metadata.technicalBasics.mixedContentCount, 1);
+  assert.ok(result.issues.some((issue) => issue.name === '폼 입력 라벨 누락'));
+  assert.ok(result.issues.some((issue) => issue.name === '버튼 접근성 이름 누락'));
+  assert.ok(result.issues.some((issue) => issue.name === 'HTTPS 혼합 콘텐츠 발견'));
+});
+
+test('detects technical accessibility basics for charset ids forms and iframes', () => {
+  const html = `
+    <!doctype html>
+    <html lang="ko">
+      <head>
+        <title>Booking Consulting Service</title>
+        <meta name="description" content="Booking page for consulting customers with price, process, comparison, certification, portfolio and consultation details.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="canonical" href="https://example.com/booking">
+      </head>
+      <body>
+        <h1 id="hero">Booking Consulting Service</h1>
+        <section id="hero">
+          <p>This page explains price, process, comparison, certification, portfolio, contact and estimate details for customers.</p>
+        </section>
+        <form action="http://forms.example.com/lead">
+          <label for="name">이름</label>
+          <input id="name" type="text" name="name">
+        </form>
+        <iframe src="https://maps.example.com/embed"></iframe>
+      </body>
+    </html>
+  `;
+
+  const result = analyzeHtml({
+    url: 'https://example.com/booking',
+    html
+  });
+
+  assert.equal(result.metadata.technicalBasics.hasCharset, false);
+  assert.equal(result.metadata.accessibilityStats.duplicateIdCount, 1);
+  assert.equal(result.metadata.formStats.insecureActionCount, 1);
+  assert.equal(result.metadata.accessibilityStats.iframeWithoutTitleCount, 1);
+  assert.ok(result.issues.some((issue) => issue.name === '문자 인코딩 선언 누락'));
+  assert.ok(result.issues.some((issue) => issue.name === '중복 id 속성 발견'));
+  assert.ok(result.issues.some((issue) => issue.name === '안전하지 않은 폼 전송 주소'));
+  assert.ok(result.issues.some((issue) => issue.name === 'iframe title 누락'));
 });
 
 test('detects deeper AEO and GEO readiness gaps from page content', () => {

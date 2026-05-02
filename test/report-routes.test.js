@@ -44,6 +44,13 @@ test('serves diagnosis report JSON and grouped HTML for stored runs', async () =
     assert.match(html, /엔티티/);
     assert.match(html, /작업지시서/);
     assert.match(html, /추정 업종 카테고리/);
+    assert.match(html, /분석률/);
+    assert.match(html, /수집 제외/);
+    assert.match(html, /링크 점검/);
+    assert.match(html, /JS 렌더링/);
+    assert.match(html, /웹 품질 점수/);
+    assert.match(html, /접근성/);
+    assert.match(html, /보안 관행/);
   } finally {
     await new Promise((resolve) => app.close(resolve));
     await rm(dir, { recursive: true, force: true });

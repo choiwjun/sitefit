@@ -298,6 +298,66 @@ test('diagnose API includes link status issues in the diagnosis run', async () =
   }
 });
 
+test('diagnose API exposes analysis coverage for trust evidence', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-analysis-coverage-'));
+  const app = createServer({
+    dataDir: dir,
+    crawler: {
+      maxPages: 2,
+      maxDepth: 1,
+      maxBytes: 512000,
+      maxQueryParams: 8,
+      maxLinkChecks: 3,
+      renderJavaScript: 'auto'
+    },
+    fetcher: async (url) => {
+      if (url.endsWith('/robots.txt')) return { url, status: 404, contentType: 'text/plain', text: '' };
+      if (url.endsWith('/sitemap.xml')) return { url, status: 404, contentType: 'text/plain', text: '' };
+      if (url.endsWith('/service')) {
+        return {
+          url,
+          status: 200,
+          contentType: 'text/html',
+          html: '<title>Service</title><h1>Service</h1><a href="/deep">Deep</a>'
+        };
+      }
+      return {
+        url,
+        status: 200,
+        contentType: 'text/html',
+        html: '<title>Home</title><h1>Home</h1><a href="/service">Service</a><a href="/contact">Contact</a>'
+      };
+    }
+  });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const response = await fetch(`${baseUrl}/api/diagnose`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ siteUrl: 'https://example.com/' })
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(data.run.analysisCoverage.maxPages, 2);
+    assert.equal(data.run.analysisCoverage.analyzedPages, 2);
+    assert.equal(data.run.analysisCoverage.skippedUrls >= 1, true);
+    assert.equal(data.run.analysisCoverage.checkedLinks, data.run.linkStatus.checkedLinks.length);
+    assert.equal(data.run.analysisCoverage.renderedPages, 0);
+    assert.equal(data.run.webQualityScores.source, 'sitefit-rules');
+    assert.equal(typeof data.run.webQualityScores.performance, 'number');
+    assert.equal(typeof data.run.webQualityScores.accessibility, 'number');
+    assert.equal(typeof data.run.webQualityScores.bestPractices, 'number');
+    assert.equal(typeof data.run.webQualityScores.seo, 'number');
+    assert.match(data.run.summary, /분석률/);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('diagnose API applies inferred industry-specific rules', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sitefit-industry-rules-'));
   const app = createServer({

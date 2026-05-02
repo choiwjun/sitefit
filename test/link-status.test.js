@@ -51,6 +51,26 @@ test('skips unsafe or duplicate links before checking status', async () => {
   assert.equal(result.issues.length, 0);
 });
 
+test('detects redirect chains when status checks expose hop counts', async () => {
+  const result = await analyzeLinkStatus({
+    rootUrl: 'https://example.com/',
+    pageResults: [
+      pageResult('https://example.com/', [
+        'https://example.com/old-campaign'
+      ])
+    ],
+    fetcher: async (url) => ({
+      url: 'https://example.com/final-campaign',
+      status: 200,
+      redirectCount: 3,
+      redirectChain: [url, 'https://example.com/step-1', 'https://example.com/step-2', 'https://example.com/final-campaign']
+    })
+  });
+
+  assert.equal(result.checkedLinks[0].redirectCount, 3);
+  assert.ok(result.issues.some((issue) => issue.name === '리다이렉트 체인 과다'));
+});
+
 function pageResult(url, outgoingLinks) {
   return {
     url,

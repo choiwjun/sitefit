@@ -15,6 +15,7 @@ import { analyzeSiteStructure } from './diagnosis/analyze-site.js';
 import { compareDiagnosisRuns } from './diagnosis/compare-runs.js';
 import { analyzeLinkStatus } from './diagnosis/link-status.js';
 import { analyzeSiteAssets } from './diagnosis/site-assets.js';
+import { calculateWebQualityScores } from './diagnosis/web-quality.js';
 import { renderReportHtml } from './reporting/render-report-html.js';
 import { createMonthlyAccount } from './operations/monthly-management.js';
 import { assignPartner } from './operations/partner-assignment.js';
@@ -241,11 +242,12 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
     rootUrl: crawl.rootUrl,
     pageResults
   });
+  const maxLinkChecks = Number(body.maxLinkChecks || crawlerConfig.maxLinkChecks || 100);
   const linkStatus = await analyzeLinkStatus({
     rootUrl: crawl.rootUrl,
     pageResults,
     fetcher: linkStatusFetcherFrom(fetcher),
-    maxLinks: Number(body.maxLinkChecks || crawlerConfig.maxLinkChecks || 50)
+    maxLinks: maxLinkChecks
   });
   const industryRules = analyzeIndustryRules({
     businessCategory: siteStructure.businessCategory,
@@ -259,10 +261,20 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
     ...pageResults.flatMap((result) => result.issues)
   ];
   const scores = calculateRunScores(pageResults, [...siteAssets.issues, ...siteStructure.issues, ...linkStatus.issues, ...industryRules.issues]);
+  const webQualityScores = calculateWebQualityScores({ scores, issues, pageResults });
   const uniqueIssueCount = countUniqueIssues(issues);
   const inferredIndustry = body.industry && body.industry !== 'unknown'
     ? body.industry
     : siteStructure.businessCategory?.id || 'unknown';
+  const analysisCoverage = buildAnalysisCoverage({
+    crawl,
+    pageResults,
+    linkStatus,
+    maxPages: Number(body.maxPages || crawlerConfig.maxPages),
+    maxDepth: Number(body.maxDepth || crawlerConfig.maxDepth),
+    maxBytes: Number(body.maxBytes || crawlerConfig.maxBytes),
+    maxLinkChecks
+  });
   const result = {
     url: crawl.rootUrl,
     industry: inferredIndustry,
@@ -270,15 +282,17 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
     businessCategory: siteStructure.businessCategory,
     pagesAnalyzed: pageResults.length,
     scores,
+    webQualityScores,
     issues,
     pageResults,
     siteAssets,
     siteStructure,
     linkStatus,
     industryRules,
+    analysisCoverage,
     crawl,
     shareToken: randomBytes(18).toString('hex'),
-    summary: `${pageResults.length}개 페이지를 분석했습니다. 주요 개선 유형 ${uniqueIssueCount}개, 페이지별 탐지 ${issues.length}건을 확인했습니다. 종합 준비도 점수: ${scores.overall}.`
+    summary: `${pageResults.length}개 페이지를 분석했습니다. 분석률 ${analysisCoverage.analysisRate}% 기준으로 주요 개선 유형 ${uniqueIssueCount}개, 페이지별 탐지 ${issues.length}건을 확인했습니다. 종합 준비도 점수: ${scores.overall}.`
   };
   result.report = await generateAiReportDraft({
     chatClient,
@@ -287,6 +301,32 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
   const run = await store.addDiagnosisRun(result);
 
   return sendJson(response, 201, { run });
+}
+
+function buildAnalysisCoverage({ crawl, pageResults, linkStatus, maxPages, maxDepth, maxBytes, maxLinkChecks }) {
+  const sameOriginSkipped = (crawl.skipped || [])
+    .filter((item) => !['external_origin', 'external_seed'].includes(item.reason));
+  const skippedUrls = sameOriginSkipped.length;
+  const analyzedPages = pageResults.length;
+  const discoveredUrls = analyzedPages + skippedUrls;
+  const renderedPages = crawl.pages?.filter((page) => page.rendered).length || 0;
+  const analysisRate = discoveredUrls
+    ? Math.round((analyzedPages / discoveredUrls) * 100)
+    : 100;
+
+  return {
+    analyzedPages,
+    discoveredUrls,
+    skippedUrls,
+    analysisRate,
+    maxPages,
+    maxDepth,
+    maxBytes,
+    maxLinkChecks,
+    checkedLinks: linkStatus.checkedLinks?.length || 0,
+    skippedLinks: linkStatus.skippedLinks?.length || 0,
+    renderedPages
+  };
 }
 
 function assetFetcherFrom(fetcher) {
