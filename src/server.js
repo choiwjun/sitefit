@@ -26,14 +26,23 @@ import { transitionEstimateStatus } from './sales/estimate-status.js';
 import { SI_PACKAGES } from './sales/package-recommendation.js';
 import { transitionLeadStatus } from './sales/pipeline.js';
 import { scoreLead } from './leads/lead-score.js';
-import { JsonStore } from './storage/json-store.js';
+import { createStore } from './storage/create-store.js';
 
 const CONFIG = loadConfig();
 const DEFAULT_PORT = CONFIG.port;
 const PUBLIC_DIR = join(process.cwd(), 'public');
 
-export function createServer({ dataDir = 'data', fetcher, renderer, adminToken = CONFIG.adminToken, nodeEnv = process.env.NODE_ENV || 'development', crawler = CONFIG.crawler, chatClient = new MockChatClient() } = {}) {
-  const store = new JsonStore(dataDir);
+export function createServer(options = {}) {
+  const {
+    dataDir = 'data',
+    store = createStore({ dataDir, forceJson: Object.hasOwn(options, 'dataDir') }),
+    fetcher,
+    renderer,
+    adminToken = CONFIG.adminToken,
+    nodeEnv = process.env.NODE_ENV || 'development',
+    crawler = CONFIG.crawler,
+    chatClient = new MockChatClient()
+  } = options;
 
   return createHttpServer(async (request, response) => {
     try {

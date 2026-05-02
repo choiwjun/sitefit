@@ -1,5 +1,27 @@
 # 사이트핏 작업 환경
 
+## Vercel + Supabase 배포
+
+운영 배포는 Vercel 서버리스 함수와 Supabase Postgres 저장소를 기준으로 준비되어 있습니다.
+
+1. Supabase SQL editor에서 `supabase/schema.sql`을 실행합니다.
+2. Vercel 프로젝트 환경변수에 다음 값을 설정합니다.
+
+```text
+ADMIN_TOKEN=충분히_긴_관리자_토큰
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SUPABASE_RECORDS_TABLE=sitefit_records
+CRAWLER_RENDERER=none
+CRAWLER_RENDER_JS=auto
+AI_PROVIDER=mock
+```
+
+3. Vercel은 `vercel.json`의 rewrite를 통해 모든 요청을 `api/index.js`로 전달합니다.
+4. 로컬 개발에서 Supabase 환경변수가 없으면 기존 `data/*.json` 저장소를 사용합니다.
+
+주의: `SUPABASE_SERVICE_ROLE_KEY`는 서버 환경변수로만 설정해야 하며 브라우저에 노출하면 안 됩니다.
+
 이 폴더는 사이트핏 애플리케이션과 Codex 작업 파이프라인 설정을 함께 보관합니다.
 
 ## 실행
