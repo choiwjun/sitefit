@@ -27,6 +27,8 @@ export function enrichWorkOrderPlainLanguage(workOrder = {}) {
 export function plainIssueCopy(issue = {}) {
   const name = issue.issueName || issue.name || '개선 항목';
   const layer = issue.layer || 'review';
+  const exact = exactPlainIssueCopy(name);
+  if (exact) return exact;
   const text = `${name} ${issue.instruction || issue.evidence || ''}`;
 
   if (matches(text, ['CTA', '상담', '문의', '구매', '전환', '연락', '가격', '견적', '결제', '환불', '배송'])) {
@@ -86,6 +88,70 @@ export function plainIssueCopy(issue = {}) {
     why: '설명이 모호하면 고객이 우리 서비스가 맞는지 판단하기 어렵고 상담 전환도 늦어질 수 있습니다.',
     fix: '먼저 해당 페이지에서 고객이 알아야 할 핵심 정보와 다음 행동 버튼을 분명하게 정리하세요.'
   });
+}
+
+function exactPlainIssueCopy(name) {
+  if (matches(name, ['리다이렉트 링크 발견', '리다이렉트 체인 과다', '깨진 링크', '서버 오류 링크', '내부 링크 대상 미수집'])) {
+    return copy({
+      title: name,
+      label: '검색 노출 기본',
+      meaning: '사이트 안의 링크가 돌아가거나 끊겨 검색엔진과 방문자가 목적지에 바로 도착하기 어렵다는 뜻입니다.',
+      why: '중요한 링크가 불안정하면 검색엔진 수집이 비효율적이고, 방문자는 이동 중 신뢰를 잃을 수 있습니다.',
+      fix: '먼저 깨진 링크는 정상 주소로 바꾸고, 리다이렉트 링크는 최종 도착 URL로 직접 연결하세요.'
+    });
+  }
+
+  if (matches(name, ['canonical', '메타 설명', 'meta description', 'title', 'H1', 'robots.txt', 'sitemap.xml', 'noindex'])) {
+    return copy({
+      title: name,
+      label: '검색 노출 기본',
+      meaning: '검색엔진이 이 페이지를 어떤 주소와 설명으로 이해해야 하는지 불명확하다는 뜻입니다.',
+      why: '검색 결과의 제목과 설명이 약하거나 대표 주소가 흔들리면 중요한 페이지가 제대로 노출되기 어렵습니다.',
+      fix: '먼저 페이지 제목, 검색 설명, 대표 URL, robots.txt, sitemap.xml 같은 기본 검색 정보를 정리하세요.'
+    });
+  }
+
+  if (matches(name, ['문자 인코딩', 'viewport', '이미지', 'alt', 'LCP', 'CLS', 'TBT', '접근성', 'iframe', '폼'])) {
+    return copy({
+      title: name,
+      label: '사용 편의성',
+      meaning: '방문자가 모바일, 속도, 화면 표시, 입력 과정에서 불편을 겪을 수 있다는 뜻입니다.',
+      why: '페이지가 느리거나 화면 요소가 불안정하면 내용을 보기 전에 이탈할 수 있고, 일부 사용자는 기능을 제대로 쓰기 어렵습니다.',
+      fix: '먼저 모바일 표시, 이미지 설명과 크기, 느린 리소스, 입력 폼과 접근성 기본값을 점검하세요.'
+    });
+  }
+
+  if (matches(name, ['신뢰 근거', '브랜드 엔티티', '구조화 데이터', 'OG 메타', '차별점 근거', '인용 가능한', '외부 신뢰'])) {
+    return copy({
+      title: name,
+      label: 'AI 신뢰 근거',
+      meaning: '회사와 서비스가 믿을 만한지 판단할 근거가 부족하다는 뜻입니다.',
+      why: '회사 정보, 사례, 인증, 정책, 구조화 데이터가 약하면 방문자와 AI 모두 신뢰 판단을 하기 어렵습니다.',
+      fix: '먼저 회사소개, 고객 사례, 인증/수상, 정책 링크, 구조화 데이터를 보강해 신뢰 근거를 한곳에 모으세요.'
+    });
+  }
+
+  if (matches(name, ['CTA', '상담', '문의', '연락 수단', '구매 버튼', '결제', '환불', '배송'])) {
+    return copy({
+      title: name,
+      label: '문의/구매 전환',
+      meaning: '방문자가 문의나 구매 같은 다음 행동을 바로 선택하기 어렵다는 뜻입니다.',
+      why: '고객이 관심을 가져도 상담, 문의, 구매 버튼이나 판단 정보가 부족하면 이탈할 가능성이 높습니다.',
+      fix: '먼저 버튼 문구, 연락 수단, 신청 폼, 구매 안내처럼 결정에 필요한 정보를 눈에 잘 보이는 위치에 배치하세요.'
+    });
+  }
+
+  if (matches(name, ['FAQ', '가격 또는 견적 기준', '서비스 절차', '비교 콘텐츠', '본문 정보량', '질문'])) {
+    return copy({
+      title: name,
+      label: 'AI 답변 준비',
+      meaning: '고객이 검색창이나 AI에 물어볼 법한 질문에 사이트가 충분히 답하지 못한다는 뜻입니다.',
+      why: '질문과 답변, 절차, 선택 기준이 부족하면 검색엔진과 AI가 이 사이트를 추천 근거로 이해하기 어렵습니다.',
+      fix: '먼저 자주 받는 질문, 진행 절차, 비교 기준, 판단에 필요한 본문 설명을 추가하세요.'
+    });
+  }
+
+  return null;
 }
 
 export function labelForPlainLayer(value) {

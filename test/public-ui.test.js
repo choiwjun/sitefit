@@ -112,6 +112,8 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /selectPriorityIssues/);
   assert.match(script, /shortIssueEvidence/);
   assert.match(script, /이번 사이트에서 확인/);
+  assert.match(script, /exactPlainIssueCopy/);
+  assert.match(script, /리다이렉트 링크는 최종 도착 URL로 직접 연결/);
   assert.match(script, /진단 결과 기반 개선안 받기/);
   assert.match(script, /견적 전환 제안/);
   assert.match(script, /진단 신뢰 근거/);
