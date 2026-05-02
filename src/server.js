@@ -33,6 +33,10 @@ const DEFAULT_PORT = CONFIG.port;
 const PUBLIC_DIR = join(process.cwd(), 'public');
 
 export function createServer(options = {}) {
+  return createHttpServer(createRequestHandler(options));
+}
+
+export function createRequestHandler(options = {}) {
   const {
     dataDir = 'data',
     store = createStore({ dataDir, forceJson: Object.hasOwn(options, 'dataDir') }),
@@ -44,9 +48,9 @@ export function createServer(options = {}) {
     chatClient = new MockChatClient()
   } = options;
 
-  return createHttpServer(async (request, response) => {
+  return async function handleRequest(request, response) {
     try {
-      const url = new URL(request.url, `http://${request.headers.host}`);
+      const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
 
       if (request.method === 'GET' && url.pathname === '/health') {
         return sendJson(response, 200, {
@@ -184,7 +188,7 @@ export function createServer(options = {}) {
     } catch (error) {
       return sendJson(response, 500, { error: 'internal_error', message: error.message });
     }
-  });
+  };
 }
 
 function requiresAdminAuth(request, url) {

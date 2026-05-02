@@ -1,10 +1,10 @@
-import { createServer } from '../src/server.js';
+import { createRequestHandler } from '../src/server.js';
 
-let server;
+let handleRequest;
 
-export default function handler(request, response) {
-  if (!server) {
-    server = createServer({ nodeEnv: process.env.NODE_ENV || 'production' });
+export default async function handler(request, response) {
+  if (!handleRequest) {
+    handleRequest = createRequestHandler({ nodeEnv: process.env.NODE_ENV || 'production' });
   }
-  server.emit('request', request, response);
+  await handleRequest(request, response);
 }
