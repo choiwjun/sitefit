@@ -61,7 +61,7 @@ export function createRequestHandler(options = {}) {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/session') {
-        return handleSession(request, response, adminToken, nodeEnv);
+        return await handleSession(request, response, adminToken, nodeEnv);
       }
 
       if (requiresAdminAuth(request, url) && !isAuthorized(request, adminToken, nodeEnv)) {
@@ -69,7 +69,7 @@ export function createRequestHandler(options = {}) {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/diagnose') {
-        return handleDiagnose(request, response, store, fetcher, renderer, crawler, chatClient);
+        return await handleDiagnose(request, response, store, fetcher, renderer, crawler, chatClient);
       }
 
       if (request.method === 'GET' && url.pathname === '/api/packages') {
@@ -88,68 +88,68 @@ export function createRequestHandler(options = {}) {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/admin/demo-runs') {
-        return handleAdminDemoRun(request, response, store, chatClient);
+        return await handleAdminDemoRun(request, response, store, chatClient);
       }
 
       if (request.method === 'DELETE' && url.pathname === '/api/admin/demo-data') {
-        return handleAdminDemoDataDelete(request, response, store);
+        return await handleAdminDemoDataDelete(request, response, store);
       }
 
       const apiReportMatch = url.pathname.match(/^\/api\/reports\/([^/]+)$/);
       if (request.method === 'GET' && apiReportMatch) {
-        return handleReportJson(request, response, store, apiReportMatch[1], url, adminToken, nodeEnv);
+        return await handleReportJson(request, response, store, apiReportMatch[1], url, adminToken, nodeEnv);
       }
 
       const aiReportMatch = url.pathname.match(/^\/api\/ai\/reports\/([^/]+)$/);
       if (request.method === 'POST' && aiReportMatch) {
-        return handleAiReport(request, response, store, aiReportMatch[1], chatClient, url, adminToken, nodeEnv);
+        return await handleAiReport(request, response, store, aiReportMatch[1], chatClient, url, adminToken, nodeEnv);
       }
 
       const htmlReportMatch = url.pathname.match(/^\/reports\/([^/]+)$/);
       if (request.method === 'GET' && htmlReportMatch) {
-        return handleReportHtml(request, response, store, htmlReportMatch[1], url, adminToken, nodeEnv);
+        return await handleReportHtml(request, response, store, htmlReportMatch[1], url, adminToken, nodeEnv);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/leads') {
-        return handleLead(request, response, store);
+        return await handleLead(request, response, store);
       }
 
       const leadStatusMatch = url.pathname.match(/^\/api\/leads\/([^/]+)\/status$/);
       if (request.method === 'PATCH' && leadStatusMatch) {
-        return handleLeadStatus(request, response, store, leadStatusMatch[1]);
+        return await handleLeadStatus(request, response, store, leadStatusMatch[1]);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/estimates') {
-        return handleEstimate(request, response, store);
+        return await handleEstimate(request, response, store);
       }
 
       const estimateStatusMatch = url.pathname.match(/^\/api\/estimates\/([^/]+)\/status$/);
       if (request.method === 'PATCH' && estimateStatusMatch) {
-        return handleEstimateStatus(request, response, store, estimateStatusMatch[1]);
+        return await handleEstimateStatus(request, response, store, estimateStatusMatch[1]);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/rediagnosis/compare') {
-        return handleRediagnosisCompare(request, response, store);
+        return await handleRediagnosisCompare(request, response, store);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/notes') {
-        return handleNote(request, response, store);
+        return await handleNote(request, response, store);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/partners') {
-        return handlePartner(request, response, store);
+        return await handlePartner(request, response, store);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/assignments') {
-        return handleAssignment(request, response, store);
+        return await handleAssignment(request, response, store);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/monthly-accounts') {
-        return handleMonthlyAccount(request, response, store);
+        return await handleMonthlyAccount(request, response, store);
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/summary') {
-        return handleAdminSummary(response, store);
+        return await handleAdminSummary(response, store);
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/runs') {
@@ -184,7 +184,7 @@ export function createRequestHandler(options = {}) {
         return sendJson(response, 200, await store.exportAll());
       }
 
-      return serveStatic(url.pathname, response);
+      return await serveStatic(url.pathname, response);
     } catch (error) {
       return sendJson(response, 500, { error: 'internal_error', message: error.message });
     }

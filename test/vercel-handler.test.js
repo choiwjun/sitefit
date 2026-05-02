@@ -18,6 +18,23 @@ test('Vercel serverless handler awaits shared request handler responses', async 
   assert.equal(JSON.parse(response.body).ok, true);
 });
 
+test('Vercel serverless handler converts async route failures to JSON errors', async () => {
+  const response = mockResponse();
+
+  await handler({
+    method: 'POST',
+    url: '/api/diagnose',
+    headers: { host: 'sitefit.test' },
+    [Symbol.asyncIterator]: async function* () {
+      yield Buffer.from('{siteUrl:https://example.com}');
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 500);
+  assert.equal(response.headers['content-type'], 'application/json; charset=utf-8');
+  assert.equal(JSON.parse(response.body).error, 'internal_error');
+});
+
 function mockResponse() {
   return {
     statusCode: 200,
