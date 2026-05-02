@@ -96,6 +96,8 @@ function renderResult(run) {
     ${renderScoreBreakdown(run.scores || {})}
     ${renderWebQualityScores(run.webQualityScores)}
     ${renderAnalysisCoverage(run.analysisCoverage)}
+    ${renderTrustEvidence(run.trustEvidence)}
+    ${renderSalesConversion(run.salesConversion)}
     ${renderPriorityIssues(allIssues)}
     ${renderWorkScopes(workScopes)}
     ${renderIssueGroups(allIssues)}
@@ -157,6 +159,64 @@ function renderAnalysisCoverage(coverage) {
         ${renderMetric('JS 렌더링', `${coverage.renderedPages ?? 0}개`)}
       </div>
       <p class="detail-note">최대 ${escapeHtml(coverage.maxPages ?? 0)}페이지, 깊이 ${escapeHtml(coverage.maxDepth ?? 0)}, 페이지당 ${escapeHtml(formatBytes(coverage.maxBytes ?? 0))} 범위에서 안전하게 진단했습니다.</p>
+    </section>
+  `;
+}
+
+function renderTrustEvidence(trustEvidence) {
+  if (!trustEvidence) return '';
+  return `
+    <section class="panel readable-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Trust Evidence</p>
+          <h3>진단 신뢰 근거</h3>
+        </div>
+        <span class="section-count">${escapeHtml(trustEvidence.source || 'sitefit-rules')}</span>
+      </div>
+      <div class="trust-evidence-grid">
+        ${(trustEvidence.items || []).map((item) => `
+          <div class="trust-evidence-card">
+            <span>${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+          </div>
+        `).join('')}
+      </div>
+      <p class="detail-note">${escapeHtml(trustEvidence.note || '')}</p>
+    </section>
+  `;
+}
+
+function renderSalesConversion(plan) {
+  if (!plan) return '';
+  return `
+    <section class="panel readable-section sales-conversion-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Next Step</p>
+          <h3>견적 전환 제안</h3>
+        </div>
+        <a class="button" href="#lead-form">${escapeHtml(plan.ctaLabel || '진단 결과 기반 개선안 받기')}</a>
+      </div>
+      <p>${escapeHtml(plan.ctaDescription || '')}</p>
+      <div class="metric-strip">
+        ${renderMetric('전문가 의뢰 필요', `${plan.expertRequiredIssueCount ?? 0}건`)}
+        ${renderMetric('직접 수정 가능', `${plan.selfServeIssueCount ?? 0}건`)}
+        ${renderMetric('예상 기간', plan.estimatedTimeline || '검토 필요')}
+      </div>
+      <div class="package-grid">
+        ${(plan.recommendedPackages || []).slice(0, 4).map((pkg) => `
+          <article class="package-card">
+            <strong>${escapeHtml(pkg.name)}</strong>
+            <span>${escapeHtml(pkg.matchedIssueCount || 0)}건 연결</span>
+            <small>${formatPriceRange(pkg.priceRange)}</small>
+            <p>${escapeHtml(pkg.reason || '')}</p>
+          </article>
+        `).join('') || '<p class="empty-state">추천 패키지는 상담에서 확정합니다.</p>'}
+      </div>
+      <ol class="next-action-list">
+        ${(plan.nextActions || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ol>
     </section>
   `;
 }
@@ -471,4 +531,11 @@ function formatBytes(bytes) {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
   if (value >= 1000) return `${Math.round(value / 1000)}KB`;
   return `${value}B`;
+}
+
+function formatPriceRange(priceRange = {}) {
+  const min = Number(priceRange.min || 0);
+  const max = Number(priceRange.max || 0);
+  if (!min && !max) return '상담 후 산정';
+  return `${min.toLocaleString()}-${max.toLocaleString()}원`;
 }

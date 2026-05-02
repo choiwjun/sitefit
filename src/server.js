@@ -19,6 +19,7 @@ import { calculateWebQualityScores } from './diagnosis/web-quality.js';
 import { renderReportHtml } from './reporting/render-report-html.js';
 import { createMonthlyAccount } from './operations/monthly-management.js';
 import { assignPartner } from './operations/partner-assignment.js';
+import { createSalesConversionPlan, createTrustEvidenceSummary } from './sales/conversion-plan.js';
 import { createEstimateDraft } from './sales/estimate.js';
 import { transitionEstimateStatus } from './sales/estimate-status.js';
 import { SI_PACKAGES } from './sales/package-recommendation.js';
@@ -297,6 +298,15 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
   result.report = await generateAiReportDraft({
     chatClient,
     diagnosis: result
+  });
+  result.salesConversion = createSalesConversionPlan({
+    issues,
+    workOrders: result.report?.workOrders || []
+  });
+  result.trustEvidence = createTrustEvidenceSummary({
+    analysisCoverage,
+    webQualityScores,
+    issues
   });
   const run = await store.addDiagnosisRun(result);
 

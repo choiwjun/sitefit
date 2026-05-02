@@ -12,4 +12,7 @@ test('admin UI exposes a sales pipeline workspace with notes, estimates, and red
   assert.match(html, /data-pipeline-board/);
   assert.match(html, /\/api\/admin\/notes/);
   assert.match(html, /\/api\/rediagnosis\/compare/);
+  assert.match(html, /renderSalesNextActions/);
+  assert.match(html, /salesConversion/);
+  assert.match(html, /추천 패키지/);
 });

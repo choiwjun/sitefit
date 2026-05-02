@@ -351,6 +351,11 @@ test('diagnose API exposes analysis coverage for trust evidence', async () => {
     assert.equal(typeof data.run.webQualityScores.accessibility, 'number');
     assert.equal(typeof data.run.webQualityScores.bestPractices, 'number');
     assert.equal(typeof data.run.webQualityScores.seo, 'number');
+    assert.equal(data.run.salesConversion.ctaLabel, '진단 결과 기반 개선안 받기');
+    assert.equal(data.run.salesConversion.recommendedPackages.length > 0, true);
+    assert.equal(typeof data.run.salesConversion.expertRequiredIssueCount, 'number');
+    assert.equal(data.run.trustEvidence.source, 'sitefit-rules');
+    assert.ok(data.run.trustEvidence.items.some((item) => item.label === '분석률'));
     assert.match(data.run.summary, /분석률/);
   } finally {
     await new Promise((resolve) => app.close(resolve));

@@ -303,7 +303,7 @@
             <div class="row dense">
               <strong><a href="/reports/${encodeURIComponent(run.id)}?token=${encodeURIComponent(run.shareToken || '')}">${escapeHtml(run.url)}</a></strong>
               <span>${escapeHtml(run.pagesAnalyzed || 1)}개 페이지</span>
-              <span>점수 ${escapeHtml(run.scores?.overall ?? '-')}</span>
+              <span>점수 ${escapeHtml(run.scores?.overall ?? '-')} · ${escapeHtml(run.salesConversion?.estimatedTimeline || '견적 검토')}</span>
             </div>
           `).join('')
           : '<p class="empty-state">진단 기록이 없습니다.</p>';
@@ -311,10 +311,30 @@
 
       function renderOperations() {
         document.querySelector('#operation-list').innerHTML = `
+          ${renderSalesNextActions()}
           <div class="stack-row"><strong>파트너</strong><p>${state.partners.length}명 등록</p></div>
           <div class="stack-row"><strong>배정</strong><p>${state.assignments.length}건</p></div>
           <div class="stack-row"><strong>월간 관리</strong><p>${state.monthly.length}개 계정</p></div>
           <div class="stack-row"><strong>SI 패키지</strong><p>${state.packages.map((pkg) => escapeHtml(pkg.name)).join(', ') || '없음'}</p></div>
+        `;
+      }
+
+      function renderSalesNextActions() {
+        const latestRun = state.runs[0];
+        const plan = latestRun?.salesConversion;
+        if (!plan) {
+          return '<div class="stack-row"><strong>추천 패키지</strong><p>최신 진단 후 표시됩니다.</p></div>';
+        }
+        const packages = (plan.recommendedPackages || []).slice(0, 3).map((pkg) => `${pkg.name}(${pkg.matchedIssueCount || 0}건)`).join(', ');
+        return `
+          <div class="stack-row">
+            <strong>추천 패키지</strong>
+            <p>${escapeHtml(packages || '상담에서 확정')} · 예상 ${escapeHtml(plan.estimatedTimeline || '검토 필요')}</p>
+          </div>
+          <div class="stack-row">
+            <strong>다음 액션</strong>
+            <p>${(plan.nextActions || []).slice(0, 3).map(escapeHtml).join(' → ')}</p>
+          </div>
         `;
       }
 

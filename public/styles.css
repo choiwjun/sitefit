@@ -485,16 +485,45 @@ textarea {
 }
 
 .scope-grid,
-.evidence-grid {
+.evidence-grid,
+.trust-evidence-grid,
+.package-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.scope-card {
+.scope-card,
+.trust-evidence-card,
+.package-card {
   display: grid;
   gap: 6px;
   padding: 14px;
+}
+
+.trust-evidence-card,
+.package-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.trust-evidence-card span,
+.package-card span,
+.package-card small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sales-conversion-panel .button {
+  align-self: start;
+}
+
+.next-action-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-left: 22px;
 }
 
 .evidence-card {
@@ -617,6 +646,8 @@ article p,
   .issue-group-grid,
   .scope-grid,
   .evidence-grid,
+  .trust-evidence-grid,
+  .package-grid,
   .row,
   .lead-form {
     grid-template-columns: 1fr;

@@ -26,6 +26,8 @@ export function renderReportHtml(run) {
         <p><small>주요 개선 유형 ${escapeHtml(issueSummary.uniqueIssueCount)}개 | 페이지별 탐지 ${escapeHtml(issueSummary.rawIssueCount)}건 | 분석 페이지 ${escapeHtml(run.pagesAnalyzed || 0)}개</small></p>
         ${renderWebQualityScores(run.webQualityScores)}
         ${renderAnalysisCoverage(run.analysisCoverage)}
+        ${renderTrustEvidence(run.trustEvidence)}
+        ${renderSalesConversion(run.salesConversion)}
         <p>${escapeHtml(report.riskNotice || '')}</p>
       </section>
       ${renderEvidenceSummary(run.pageResults || [])}
@@ -72,6 +74,33 @@ function renderAnalysisCoverage(coverage) {
   return `
         <p><small>분석률 ${escapeHtml(coverage.analysisRate ?? 0)}% | 발견 URL ${escapeHtml(coverage.discoveredUrls ?? 0)}개 | 수집 제외 ${escapeHtml(coverage.skippedUrls ?? 0)}개 | 링크 점검 ${escapeHtml(coverage.checkedLinks ?? 0)}/${escapeHtml(coverage.maxLinkChecks ?? 0)}개 | JS 렌더링 ${escapeHtml(coverage.renderedPages ?? 0)}개</small></p>
         <p><small>수집 범위: 최대 ${escapeHtml(coverage.maxPages ?? 0)}페이지, 깊이 ${escapeHtml(coverage.maxDepth ?? 0)}, 페이지당 ${escapeHtml(formatBytes(coverage.maxBytes ?? 0))}</small></p>
+  `;
+}
+
+function renderTrustEvidence(trustEvidence) {
+  if (!trustEvidence) return '';
+  return `
+        <h2>진단 신뢰 근거</h2>
+        <p><small>${(trustEvidence.items || []).map((item) => `${escapeHtml(item.label)} ${escapeHtml(item.value)}`).join(' | ')}</small></p>
+        <p><small>${escapeHtml(trustEvidence.note || '')}</small></p>
+  `;
+}
+
+function renderSalesConversion(plan) {
+  if (!plan) return '';
+  return `
+        <h2>견적 전환 제안</h2>
+        <p><strong>${escapeHtml(plan.ctaLabel || '상담 요청')}</strong></p>
+        <p><small>전문가 의뢰 필요 ${escapeHtml(plan.expertRequiredIssueCount ?? 0)}건 | 직접 수정 가능 ${escapeHtml(plan.selfServeIssueCount ?? 0)}건 | 예상 기간 ${escapeHtml(plan.estimatedTimeline || '검토 필요')}</small></p>
+        <ul class="issues">
+          ${(plan.recommendedPackages || []).slice(0, 4).map((pkg) => `
+            <li>
+              <strong>${escapeHtml(pkg.name)}</strong>
+              <p>${escapeHtml(pkg.reason || '')}</p>
+              <small>${escapeHtml(pkg.matchedIssueCount || 0)}건 연결 | ${escapeHtml(formatPriceRange(pkg.priceRange))}</small>
+            </li>
+          `).join('')}
+        </ul>
   `;
 }
 
@@ -187,4 +216,11 @@ function formatBytes(bytes) {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
   if (value >= 1000) return `${Math.round(value / 1000)}KB`;
   return `${value}B`;
+}
+
+function formatPriceRange(priceRange = {}) {
+  const min = Number(priceRange.min || 0);
+  const max = Number(priceRange.max || 0);
+  if (!min && !max) return '상담 후 산정';
+  return `${min.toLocaleString()}-${max.toLocaleString()}원`;
 }
