@@ -14,18 +14,21 @@ import { analyzeIndustryRules } from './diagnosis/industry-rules.js';
 import { analyzeSiteStructure } from './diagnosis/analyze-site.js';
 import { compareDiagnosisRuns } from './diagnosis/compare-runs.js';
 import { analyzeLinkStatus } from './diagnosis/link-status.js';
+import { buildAnalysisQualityBenchmark } from './diagnosis/quality-benchmark.js';
 import { analyzeSiteAssets } from './diagnosis/site-assets.js';
 import { calculateWebQualityScores } from './diagnosis/web-quality.js';
 import { DEMO_SITE_FIXTURES, analyzeDemoSiteFixture } from './demo/site-fixtures.js';
 import { renderReportHtml } from './reporting/render-report-html.js';
 import { createMonthlyAccount } from './operations/monthly-management.js';
 import { assignPartner } from './operations/partner-assignment.js';
+import { buildSecurityStatus } from './operations/security-status.js';
 import { createSalesConversionPlan, createTrustEvidenceSummary } from './sales/conversion-plan.js';
 import { createEstimateDraft } from './sales/estimate.js';
 import { transitionEstimateStatus } from './sales/estimate-status.js';
 import { SI_PACKAGES } from './sales/package-recommendation.js';
 import { transitionLeadStatus } from './sales/pipeline.js';
 import { scoreLead } from './leads/lead-score.js';
+import { validateCrawlUrl } from './security/url-policy.js';
 import { createStore } from './storage/create-store.js';
 
 const CONFIG = loadConfig();
@@ -85,6 +88,14 @@ export function createRequestHandler(options = {}) {
             expectedTalkLabel
           }))
         });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/admin/security') {
+        return await handleAdminSecurity(response, store, adminToken, nodeEnv);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/admin/quality-benchmark') {
+        return sendJson(response, 200, buildAnalysisQualityBenchmark());
       }
 
       if (request.method === 'POST' && url.pathname === '/api/admin/demo-runs') {
@@ -254,6 +265,13 @@ function parseCookies(cookieHeader) {
 
 async function handleDiagnose(request, response, store, fetcher, renderer, crawlerConfig, chatClient) {
   const body = await readJson(request);
+  const urlValidation = validateCrawlUrl(body.siteUrl);
+  if (!urlValidation.ok) {
+    return sendJson(response, 400, diagnosisFailurePayload('invalid_url', urlValidation.reason, {
+      siteUrl: body.siteUrl
+    }));
+  }
+
   const preflightAssets = await analyzeSiteAssets(body.siteUrl, { fetcher: assetFetcherFrom(fetcher) });
   const crawl = await crawlSite(body.siteUrl, {
     maxPages: Number(body.maxPages || crawlerConfig.maxPages),
@@ -269,7 +287,7 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
 
   if (!crawl.pages.length) {
     const message = crawl.errors[0]?.message || '진단 가능한 HTML 페이지를 찾지 못했습니다.';
-    return sendJson(response, 400, { error: 'crawl_failed', message, crawl });
+    return sendJson(response, 400, diagnosisFailurePayload('crawl_failed', message, { crawl }));
   }
 
   const pageResults = crawl.pages.map((page) => analyzeHtml({
@@ -356,6 +374,46 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
   const run = await store.addDiagnosisRun(result);
 
   return sendJson(response, 201, { run });
+}
+
+function diagnosisFailurePayload(error, message, details = {}) {
+  const reason = String(message || '');
+  const blockedByRobots = details.crawl?.skipped?.some((item) => item.reason === 'robots_disallow');
+  const hasNonHtml = details.crawl?.skipped?.some((item) => item.reason === 'non_html');
+  const hasOversized = details.crawl?.skipped?.some((item) => item.reason === 'oversized_html');
+  const actions = [];
+
+  if (error === 'invalid_url') {
+    actions.push('도메인만 입력해도 됩니다. 예: example.com');
+    actions.push('localhost, 내부 IP, 지원하지 않는 프로토콜은 진단할 수 없습니다.');
+  } else if (blockedByRobots || /robots/i.test(reason)) {
+    actions.push('robots.txt에서 공개 페이지 수집이 막혀 있는지 확인하세요.');
+    actions.push('홈, 서비스, 문의 페이지는 검색엔진 접근이 가능해야 진단할 수 있습니다.');
+  } else if (hasNonHtml) {
+    actions.push('입력 URL이 PDF, 이미지, 파일 다운로드가 아니라 HTML 페이지인지 확인하세요.');
+    actions.push('홈페이지 주소나 주요 서비스 페이지 주소로 다시 진단하세요.');
+  } else if (hasOversized) {
+    actions.push('첫 페이지 용량이 너무 크면 진단이 제한될 수 있습니다.');
+    actions.push('스크립트와 이미지가 과도한 랜딩 페이지는 대표 HTML 페이지로 다시 시도하세요.');
+  } else {
+    actions.push('사이트가 외부에서 접속 가능한지 확인하세요.');
+    actions.push('접속 차단, 일시적 서버 오류, 과도한 리다이렉트가 있으면 잠시 후 다시 시도하세요.');
+  }
+
+  return {
+    error,
+    message: reason || '진단을 진행할 수 없습니다.',
+    userMessage: friendlyDiagnosisFailureMessage(error, reason),
+    recoveryActions: actions,
+    details
+  };
+}
+
+function friendlyDiagnosisFailureMessage(error, message) {
+  if (error === 'invalid_url') return '입력한 주소 형식을 확인해야 합니다.';
+  if (/ENOTFOUND|fetch failed|getaddrinfo/i.test(message)) return '사이트에 접속하지 못했습니다.';
+  if (/private|localhost|내부|사설/i.test(message)) return '외부 공개 사이트만 진단할 수 있습니다.';
+  return '현재 주소에서 진단 가능한 HTML 페이지를 찾지 못했습니다.';
 }
 
 function buildAnalysisCoverage({ crawl, pageResults, linkStatus, maxPages, maxDepth, maxBytes, maxLinkChecks }) {
@@ -727,6 +785,17 @@ async function handleAdminSummary(response, store) {
       draft: estimates.filter((estimate) => estimate.status === 'draft').length
     }
   });
+}
+
+async function handleAdminSecurity(response, store, adminToken, nodeEnv) {
+  const leads = await store.listLeads();
+  return sendJson(response, 200, buildSecurityStatus({
+    adminToken,
+    nodeEnv,
+    counts: {
+      demoLeadCount: leads.filter((lead) => Boolean(lead.demoFixtureId)).length
+    }
+  }));
 }
 
 async function readJson(request) {

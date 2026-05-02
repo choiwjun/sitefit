@@ -1251,6 +1251,129 @@ textarea {
   margin: 0;
 }
 
+.diagnosis-failure-panel {
+  display: grid;
+  gap: 14px;
+  border-color: #f1c9c9;
+  background: #fffafa;
+}
+
+.failure-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.failure-action-grid div,
+.lead-detail-grid div,
+.ops-check-grid div,
+.quality-sample-list div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.failure-action-grid strong,
+.lead-detail-grid span,
+.ops-check-grid span,
+.quality-sample-list span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.failure-action-grid span,
+.lead-detail-grid strong,
+.quality-sample-list strong {
+  overflow-wrap: anywhere;
+}
+
+.lead-detail-panel {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.lead-detail-panel summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lead-detail-panel[open] summary {
+  margin-bottom: 10px;
+}
+
+.lead-detail-grid,
+.ops-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lead-issue-brief {
+  display: grid;
+  gap: 6px;
+}
+
+.lead-issue-brief ul,
+.ops-warning-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.lead-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lead-detail-actions button,
+.lead-detail-actions .button {
+  width: auto;
+}
+
+.ops-status-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.ops-status-card.is-ready {
+  border-color: #cfe4d7;
+  background: #f7faf8;
+}
+
+.ops-status-card.needs-review {
+  border-color: #f1d2a8;
+  background: #fffaf2;
+}
+
+.ops-check-grid .is-ok strong {
+  color: var(--ok);
+}
+
+.ops-check-grid .is-warning strong,
+.ops-warning-list {
+  color: #9a5b00;
+}
+
+.quality-sample-list {
+  display: grid;
+  gap: 8px;
+}
+
 .row {
   display: grid;
   grid-template-columns: 1fr 180px 220px;
@@ -1359,6 +1482,9 @@ article p,
   .issue-summary-row,
   .issue-checklist-row,
   .lead-contact-details,
+  .lead-detail-grid,
+  .ops-check-grid,
+  .failure-action-grid,
   .scope-grid,
   .evidence-grid,
   .trust-evidence-grid,

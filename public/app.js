@@ -23,7 +23,7 @@ diagnosisForm?.addEventListener('submit', async (event) => {
     const data = await response.json();
 
     if (!response.ok) {
-      resultPanel.innerHTML = `<h2>진단을 진행할 수 없습니다</h2><p>${escapeHtml(data.message || 'URL을 확인해주세요.')}</p>`;
+      renderDiagnosisFailure(data);
       return;
     }
 
@@ -31,7 +31,14 @@ diagnosisForm?.addEventListener('submit', async (event) => {
     renderResult(data.run);
     syncLeadUrl(data.run?.url || payload.siteUrl);
   } catch (error) {
-    resultPanel.innerHTML = `<h2>진단을 진행할 수 없습니다</h2><p>${escapeHtml(error.message || '잠시 후 다시 시도해주세요.')}</p>`;
+    renderDiagnosisFailure({
+      userMessage: '진단 서버와 연결하지 못했습니다.',
+      message: error.message || '잠시 후 다시 시도해주세요.',
+      recoveryActions: [
+        '네트워크 연결을 확인한 뒤 다시 시도하세요.',
+        '문제가 반복되면 관리자에게 사이트 주소와 오류 시간을 전달하세요.'
+      ]
+    });
   }
 });
 
@@ -98,6 +105,27 @@ function renderResult(run) {
     ${renderPriorityIssueBriefing(allIssues)}
     ${renderSalesConversion(run.salesConversion)}
     ${renderReportTechnicalDetails({ run, allIssues, workScopes, crawledPages, provider, businessCategory, issueSummary })}
+  `;
+}
+
+function renderDiagnosisFailure(data = {}) {
+  const actions = Array.isArray(data.recoveryActions) && data.recoveryActions.length
+    ? data.recoveryActions
+    : ['주소를 다시 확인한 뒤 재시도하세요.', '홈페이지나 주요 서비스 페이지 주소로 다시 입력하세요.'];
+
+  resultPanel.innerHTML = `
+    <section class="panel diagnosis-failure-panel" role="alert">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">진단 실패</p>
+          <h2>${escapeHtml(data.userMessage || '진단을 진행할 수 없습니다')}</h2>
+        </div>
+      </div>
+      <p>${escapeHtml(data.message || '입력한 URL을 확인해주세요.')}</p>
+      <div class="failure-action-grid">
+        ${actions.map((action) => `<div><strong>확인할 일</strong><span>${escapeHtml(action)}</span></div>`).join('')}
+      </div>
+    </section>
   `;
 }
 

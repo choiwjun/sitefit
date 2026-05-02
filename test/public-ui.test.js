@@ -109,6 +109,9 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /renderPriorityIssues/);
   assert.match(script, /renderSalesConversion/);
   assert.match(script, /renderTrustEvidence/);
+  assert.match(script, /renderDiagnosisFailure/);
+  assert.match(script, /failure-action-grid/);
+  assert.match(script, /진단 서버와 연결하지 못했습니다/);
   assert.match(script, /selectPriorityIssues/);
   assert.match(script, /shortIssueEvidence/);
   assert.match(script, /이번 사이트에서 확인/);

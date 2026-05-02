@@ -78,6 +78,27 @@
         <div id="demo-run-result" class="table-list">영업 시연용 샘플을 선택하세요.</div>
       </section>
 
+      <section class="admin-workspace admin-ops-workspace">
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Security</p>
+              <h2>운영 보안 점검</h2>
+            </div>
+          </div>
+          <div id="security-status" class="table-list">불러오는 중...</div>
+        </article>
+        <article class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Quality</p>
+              <h2>분석 품질 벤치마크</h2>
+            </div>
+          </div>
+          <div id="quality-benchmark" class="table-list">불러오는 중...</div>
+        </article>
+      </section>
+
       <section class="panel admin-pipeline-panel">
         <div class="section-heading">
           <div>
@@ -180,7 +201,9 @@
         packages: [],
         demoFixtures: [],
         demoRunMessage: '',
-        demoRunResult: null
+        demoRunResult: null,
+        securityStatus: null,
+        qualityBenchmark: null
       };
 
       const leadStatuses = ['consultation_requested', 'consultation_scheduled', 'consultation_complete', 'estimate_pending', 'estimate_sent', 'negotiation', 'contracted', 'lost'];
@@ -215,7 +238,7 @@
       document.querySelector('#demo-cleanup-button').addEventListener('click', deleteDemoData);
 
       async function loadAdmin() {
-        const [summary, leads, runs, estimates, notes, partners, assignments, monthly, packages, demoFixtures] = await Promise.all([
+        const [summary, leads, runs, estimates, notes, partners, assignments, monthly, packages, demoFixtures, securityStatus, qualityBenchmark] = await Promise.all([
           adminFetch('/api/admin/summary').then((response) => response.json()),
           adminFetch('/api/admin/leads').then((response) => response.json()),
           adminFetch('/api/admin/runs').then((response) => response.json()),
@@ -225,7 +248,9 @@
           adminFetch('/api/admin/assignments').then((response) => response.json()),
           adminFetch('/api/admin/monthly-accounts').then((response) => response.json()),
           adminFetch('/api/packages').then((response) => response.json()),
-          adminFetch('/api/admin/demo-fixtures').then((response) => response.json())
+          adminFetch('/api/admin/demo-fixtures').then((response) => response.json()),
+          adminFetch('/api/admin/security').then((response) => response.json()),
+          adminFetch('/api/admin/quality-benchmark').then((response) => response.json())
         ]);
 
         state.summary = summary;
@@ -238,6 +263,8 @@
         state.monthly = monthly.accounts || [];
         state.packages = packages.packages || [];
         state.demoFixtures = demoFixtures.fixtures || [];
+        state.securityStatus = securityStatus;
+        state.qualityBenchmark = qualityBenchmark;
         renderAdmin();
       }
 
@@ -250,7 +277,10 @@
         renderRuns();
         renderOperations();
         renderDemoFixtures();
+        renderSecurityStatus();
+        renderQualityBenchmark();
         bindStatusControls();
+        bindLeadDetailControls();
       }
 
       function renderDemoFixtures() {
@@ -277,6 +307,48 @@
             </div>
           </div>
         `;
+      }
+
+      function renderSecurityStatus() {
+        const status = state.securityStatus || {};
+        const checks = status.checks || {};
+        const warnings = status.warnings || [];
+        document.querySelector('#security-status').innerHTML = `
+          <div class="ops-status-card ${status.status === 'ready' ? 'is-ready' : 'needs-review'}">
+            <strong>${status.status === 'ready' ? '운영 준비됨' : '점검 필요'}</strong>
+            <span>환경: ${escapeHtml(status.nodeEnv || '-')}</span>
+          </div>
+          <div class="ops-check-grid">
+            ${renderOpsCheck('관리자 토큰', checks.adminTokenConfigured && checks.adminTokenStrong)}
+            ${renderOpsCheck('Supabase 저장소', checks.supabaseConfigured)}
+            ${renderOpsCheck('서버 전용 secret', checks.supabaseSecretServerOnly)}
+            ${renderOpsCheck('데모 데이터', Number(checks.demoDataCount || 0) === 0)}
+          </div>
+          ${warnings.length ? `<ul class="ops-warning-list">${warnings.map((warning) => `<li>${escapeHtml(labelForSecurityWarning(warning))}</li>`).join('')}</ul>` : '<p class="empty-state">운영 보안 경고가 없습니다.</p>'}
+        `;
+      }
+
+      function renderQualityBenchmark() {
+        const benchmark = state.qualityBenchmark || {};
+        const samples = benchmark.samples || [];
+        document.querySelector('#quality-benchmark').innerHTML = `
+          <div class="ops-status-card ${benchmark.status === 'pass' ? 'is-ready' : 'needs-review'}">
+            <strong>${benchmark.status === 'pass' ? '샘플 검증 통과' : '샘플 검토 필요'}</strong>
+            <span>${escapeHtml(benchmark.passedSampleCount || 0)}/${escapeHtml(benchmark.sampleCount || 0)}개 통과 · 평균 이슈 ${escapeHtml(benchmark.averageUniqueIssueCount || 0)}개</span>
+          </div>
+          <div class="quality-sample-list">
+            ${samples.slice(0, 5).map((sample) => `
+              <div>
+                <strong>${escapeHtml(sample.label)}</strong>
+                <span>${escapeHtml(sample.uniqueIssueCount)}개 유형 · 분석률 ${escapeHtml(sample.analysisRate)}% · 패키지 ${escapeHtml(sample.recommendedPackageCount)}개</span>
+              </div>
+            `).join('') || '<p class="empty-state">벤치마크 샘플이 없습니다.</p>'}
+          </div>
+        `;
+      }
+
+      function renderOpsCheck(label, ok) {
+        return `<div class="${ok ? 'is-ok' : 'is-warning'}"><span>${escapeHtml(label)}</span><strong>${ok ? '정상' : '확인'}</strong></div>`;
       }
 
       function renderSummary() {
@@ -342,6 +414,7 @@
               </div>
               ${renderLeadContactDetails(lead)}
               ${renderLeadNextAction(lead)}
+              ${renderLeadOperationalDetail(lead)}
             </div>
           `).join('')
           : '<p class="empty-state">조건에 맞는 리드가 없습니다.</p>';
@@ -389,6 +462,43 @@
             <strong>${escapeHtml(talkTrack.headline)}</strong>
             <p>${escapeHtml((talkTrack.talkingPoints || [])[0] || '')}</p>
           </div>
+        `;
+      }
+
+      function renderLeadOperationalDetail(lead) {
+        const run = findLatestRunForLead(lead);
+        const estimate = state.estimates.find((item) => item.leadId === lead.id);
+        const notes = state.notes.filter((note) => note.leadId === lead.id);
+        const topIssues = (run?.report?.workOrders || run?.issues || []).slice(0, 3);
+
+        return `
+          <details class="lead-detail-panel">
+            <summary>상담 상세 보기</summary>
+            <div class="lead-detail-grid">
+              <div>
+                <span>공유 리포트</span>
+                <strong>${run ? `<a href="/reports/${encodeURIComponent(run.id)}?token=${encodeURIComponent(run.shareToken || '')}" target="_blank" rel="noreferrer">리포트 열기</a>` : '연결된 진단 없음'}</strong>
+              </div>
+              <div>
+                <span>견적 상태</span>
+                <strong>${estimate ? escapeHtml(estimateStatusLabels[estimate.status] || estimate.status) : '초안 없음'}</strong>
+              </div>
+              <div>
+                <span>상담 메모</span>
+                <strong>${escapeHtml(notes.length)}건</strong>
+              </div>
+            </div>
+            <div class="lead-issue-brief">
+              <strong>먼저 확인할 이슈</strong>
+              <ul>
+                ${topIssues.map((issue) => `<li>${escapeHtml(issue.issueName || issue.name)} · ${escapeHtml(issue.plainLabel || issue.layer || '검토')}</li>`).join('') || '<li>진단 리포트 연결 후 표시됩니다.</li>'}
+              </ul>
+            </div>
+            <div class="lead-detail-actions">
+              <button type="button" class="button secondary" data-prefill-note="${escapeHtml(lead.id)}">메모 작성</button>
+              ${run && !estimate ? `<button type="button" data-create-estimate="${escapeHtml(lead.id)}">견적 초안 만들기</button>` : ''}
+            </div>
+          </details>
         `;
       }
 
@@ -495,6 +605,39 @@
             loadAdmin();
           });
         });
+      }
+
+      function bindLeadDetailControls() {
+        document.querySelectorAll('[data-prefill-note]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const leadId = button.getAttribute('data-prefill-note');
+            const form = document.querySelector('#note-form');
+            form.elements.leadId.value = leadId;
+            form.elements.body.focus();
+          });
+        });
+
+        document.querySelectorAll('[data-create-estimate]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await createEstimateForLead(button.getAttribute('data-create-estimate'));
+          });
+        });
+      }
+
+      async function createEstimateForLead(leadId) {
+        const lead = state.leads.find((item) => item.id === leadId);
+        const run = lead ? findLatestRunForLead(lead) : null;
+        if (!lead || !run) return;
+        await adminFetch('/api/estimates', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            leadId,
+            desiredWork: lead.desiredWork,
+            issues: run.issues || []
+          })
+        });
+        await loadAdmin();
       }
 
       async function saveNote(event) {
@@ -638,6 +781,16 @@
           flexible: '일정 협의',
           'this-quarter': '분기 내'
         }[value] || value || '미입력';
+      }
+
+      function labelForSecurityWarning(value) {
+        return {
+          production_admin_token_missing: '운영 환경에 관리자 토큰이 설정되어 있지 않습니다.',
+          admin_token_rotation_recommended: '관리자 토큰이 짧거나 임시값 패턴입니다. 운영용 강한 값으로 교체하세요.',
+          supabase_not_configured: 'Supabase 저장소 환경변수가 비어 있습니다.',
+          legacy_supabase_key_format: 'Supabase key 형식이 legacy 값입니다. 가능하면 서버 secret key로 교체하세요.',
+          demo_data_present_in_production: '운영 환경에 데모 리드가 남아 있습니다.'
+        }[value] || value;
       }
 
       function normalizeUrl(value) {

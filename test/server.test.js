@@ -176,6 +176,55 @@ test('serves health check for deployment probes', async () => {
   }
 });
 
+test('diagnose API returns actionable failure guidance for invalid public URLs', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-diagnose-failure-'));
+  const app = createServer({ dataDir: dir });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const response = await fetch(`${baseUrl}/api/diagnose`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ siteUrl: 'localhost:3000' })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error, 'invalid_url');
+    assert.match(body.userMessage, /주소/);
+    assert.equal(Array.isArray(body.recoveryActions), true);
+    assert.equal(body.recoveryActions.length >= 2, true);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin exposes security status and analysis quality benchmark', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-admin-ops-'));
+  const app = createServer({ dataDir: dir, adminToken: 'secret-token' });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const headers = { authorization: 'Bearer secret-token' };
+    const securityResponse = await fetch(`${baseUrl}/api/admin/security`, { headers });
+    const qualityResponse = await fetch(`${baseUrl}/api/admin/quality-benchmark`, { headers });
+    const security = await securityResponse.json();
+    const quality = await qualityResponse.json();
+
+    assert.equal(securityResponse.status, 200);
+    assert.equal(security.checks.adminTokenConfigured, true);
+    assert.equal(qualityResponse.status, 200);
+    assert.equal(quality.status, 'pass');
+    assert.equal(quality.sampleCount, 5);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('lead API rejects consultation requests without required qualification fields', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sitefit-lead-validation-'));
   const app = createServer({ dataDir: dir });

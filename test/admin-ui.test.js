@@ -14,10 +14,18 @@ test('admin UI exposes a sales pipeline workspace with notes, estimates, and red
   assert.match(html, /admin-toolbar-panel/);
   assert.match(html, /admin-pipeline-panel/);
   assert.match(html, /admin-utility-panel/);
+  assert.match(html, /운영 보안 점검/);
+  assert.match(html, /분석 품질 벤치마크/);
+  assert.match(html, /\/api\/admin\/security/);
+  assert.match(html, /\/api\/admin\/quality-benchmark/);
   assert.match(html, /\/api\/admin\/notes/);
   assert.match(html, /\/api\/rediagnosis\/compare/);
   assert.match(html, /renderSalesNextActions/);
   assert.match(html, /renderLeadNextAction/);
+  assert.match(html, /renderLeadOperationalDetail/);
+  assert.match(html, /lead-detail-panel/);
+  assert.match(html, /createEstimateForLead/);
+  assert.match(html, /data-prefill-note/);
   assert.match(html, /renderPipelineLeadSummary/);
   assert.match(html, /renderLeadContactDetails/);
   assert.match(html, /labelForDesiredWork/);
@@ -37,6 +45,8 @@ test('admin UI exposes a sales pipeline workspace with notes, estimates, and red
   assert.match(html, /filteredEstimates/);
   assert.match(html, /isDemoRecord/);
   assert.match(html, /renderDemoRunResult/);
+  assert.match(html, /renderSecurityStatus/);
+  assert.match(html, /renderQualityBenchmark/);
   assert.match(html, /demoRunResult/);
   assert.match(html, /demo-report-link/);
   assert.match(html, /data-demo-cleanup/);
