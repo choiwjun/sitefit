@@ -202,14 +202,19 @@ export class SupabaseStore {
   }
 
   async #request(path, { method = 'GET', body, prefer = 'return=representation' } = {}) {
+    const headers = {
+      apikey: this.key,
+      'content-type': 'application/json',
+      prefer,
+      'user-agent': 'sitefit-server/1.0'
+    };
+    if (!this.key.startsWith('sb_')) {
+      headers.authorization = `Bearer ${this.key}`;
+    }
+
     const response = await this.fetcher(`${this.url}/rest/v1/${this.table}${path}`, {
       method,
-      headers: {
-        apikey: this.key,
-        authorization: `Bearer ${this.key}`,
-        'content-type': 'application/json',
-        prefer
-      },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body)
     });
 

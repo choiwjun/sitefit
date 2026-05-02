@@ -3,3 +3,14 @@ data/
 *.log
 .env
 .env.*
+!.env.example
+
+# Local Codex/Harness working assets.
+.agents/
+skills/
+_workspace/
+docs/harness/
+docs/superpowers/
+AGENTS.md
+install.ps1
+export-current.ps1

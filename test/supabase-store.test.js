@@ -9,8 +9,19 @@ test('createStore uses Supabase when URL and service key are configured', () => 
   const store = createStore({
     env: {
       SUPABASE_URL: 'https://project.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+      SUPABASE_SECRET_KEY: 'sb_secret_example',
       SUPABASE_RECORDS_TABLE: 'sitefit_records'
+    }
+  });
+
+  assert.equal(store instanceof SupabaseStore, true);
+});
+
+test('createStore supports legacy service role keys', () => {
+  const store = createStore({
+    env: {
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role'
     }
   });
 
@@ -89,7 +100,27 @@ test('SupabaseStore persists and updates records through PostgREST', async () =>
   assert.equal(updated.salesStatus, 'consultation_scheduled');
 
   assert.equal(requests.some((request) => request.options.headers.apikey === 'service-role'), true);
+  assert.equal(requests.some((request) => request.options.headers.authorization === 'Bearer service-role'), true);
+  assert.equal(requests.some((request) => request.options.headers['user-agent'] === 'sitefit-server/1.0'), true);
   assert.equal(rows[0].collection, 'leads');
+});
+
+test('SupabaseStore does not send opaque sb keys as bearer tokens', async () => {
+  const requests = [];
+  const store = new SupabaseStore({
+    url: 'https://project.supabase.co',
+    key: 'sb_secret_example',
+    table: 'sitefit_records',
+    fetcher: async (url, options = {}) => {
+      requests.push({ url, options });
+      return jsonResponse([]);
+    }
+  });
+
+  await store.listLeads();
+
+  assert.equal(requests[0].options.headers.apikey, 'sb_secret_example');
+  assert.equal('authorization' in requests[0].options.headers, false);
 });
 
 function jsonResponse(body, status = 200) {
