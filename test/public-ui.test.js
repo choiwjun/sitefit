@@ -87,6 +87,9 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /문의\/구매 전환/);
   assert.match(css, /\.plain-summary-grid/);
   assert.match(css, /\.plain-issue-explainer/);
+  assert.match(css, /\.issue-checklist-row:has\(\.issue-evidence-details\[open\]\)/);
+  assert.match(css, /grid-column: 1 \/ -1/);
+  assert.match(css, /overflow-wrap: anywhere/);
 
   assert.match(script, /핵심 요약/);
   assert.doesNotMatch(script, /<h3>우선 개선 항목<\/h3>/);

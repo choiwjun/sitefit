@@ -770,6 +770,12 @@ textarea {
   display: flex;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+}
+
+.issue-card-title strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .issue-group-header {
@@ -854,6 +860,7 @@ textarea {
 .plain-issue-explainer div {
   display: grid;
   gap: 3px;
+  min-width: 0;
   padding: 9px 10px;
   border-radius: 6px;
   background: var(--soft);
@@ -869,9 +876,12 @@ textarea {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .technical-note {
+  display: block;
+  max-width: 100%;
   color: var(--muted);
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -880,6 +890,8 @@ textarea {
 .issue-evidence-details {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .issue-evidence-details[open] {
@@ -991,6 +1003,22 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #fff;
+}
+
+.issue-checklist-row > .issue-evidence-details {
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
+}
+
+.issue-checklist-row:has(.issue-evidence-details[open]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.issue-checklist-row:has(.issue-evidence-details[open]) > .issue-evidence-details {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  width: 100%;
 }
 
 .more-issues {
