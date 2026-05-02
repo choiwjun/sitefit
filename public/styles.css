@@ -110,6 +110,83 @@ main {
   line-height: 1.6;
 }
 
+.hero-actions,
+.trust-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.button.secondary {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.button.secondary:hover {
+  border-color: var(--accent);
+  background: var(--soft);
+}
+
+.content-section {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.content-section > p {
+  max-width: 880px;
+}
+
+.step-list,
+.faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.step-list {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.step-list li {
+  padding: 8px 0;
+}
+
+.step-list strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.step-list span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.faq-list article {
+  padding: 14px;
+}
+
+.faq-list h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.trust-link-row a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .eyebrow {
   color: var(--accent);
   font-weight: 700;

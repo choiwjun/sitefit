@@ -14,6 +14,29 @@ test('public diagnosis form only asks for the site URL before analysis', async (
   assert.doesNotMatch(html, /name="goal"/);
 });
 
+test('public landing page exposes SEO GEO AEO discovery signals', async () => {
+  const html = await readFile('public/index.html', 'utf8');
+  const robots = await readFile('public/robots.txt', 'utf8');
+  const sitemap = await readFile('public/sitemap.xml', 'utf8');
+  const adminHtml = await readFile('public/admin.html', 'utf8');
+  const loginHtml = await readFile('public/admin-login.html', 'utf8');
+
+  assert.match(html, /rel="canonical"/);
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /name="twitter:card"/);
+  assert.match(html, /application\/ld\+json/);
+  assert.match(html, /"@type": "Organization"/);
+  assert.match(html, /"@type": "Service"/);
+  assert.match(html, /"@type": "FAQPage"/);
+  assert.match(html, /자주 묻는 질문/);
+  assert.match(html, /진단은 이렇게 진행됩니다/);
+  assert.match(html, /schema\.org/);
+  assert.match(robots, /Sitemap: https:\/\/sitefit\.dicore-lab\.com\/sitemap\.xml/);
+  assert.match(sitemap, /<loc>https:\/\/sitefit\.dicore-lab\.com\/<\/loc>/);
+  assert.match(adminHtml, /noindex,nofollow/);
+  assert.match(loginHtml, /noindex,nofollow/);
+});
+
 test('public report UI hides technical scoring disclaimer copy', async () => {
   const script = await readFile('public/app.js', 'utf8');
 
