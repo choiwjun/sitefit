@@ -797,7 +797,7 @@ function normalizeComparablePath(filePath) {
   return normalize(filePath).replaceAll('\\', '/').toLowerCase();
 }
 
-if (isMainModule(import.meta.url, process.argv[1])) {
+if (!process.env.VERCEL && isMainModule(import.meta.url, process.argv[1])) {
   startServer().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;
