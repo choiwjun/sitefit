@@ -145,6 +145,48 @@ export class JsonStore {
     }
   }
 
+  async deleteDemoData() {
+    const [
+      runs,
+      leads,
+      estimates,
+      notes,
+      partners,
+      assignments,
+      monthlyAccounts
+    ] = await Promise.all(COLLECTIONS.map((name) => this.#readCollection(name)));
+
+    const demoLeadIds = new Set(leads.filter(isDemoRecord).map((lead) => lead.id));
+    const demoEstimateIds = new Set(
+      estimates
+        .filter((estimate) => isDemoRecord(estimate) || demoLeadIds.has(estimate.leadId))
+        .map((estimate) => estimate.id)
+    );
+
+    const next = {
+      'diagnosis-runs.json': runs.filter((run) => !isDemoRecord(run)),
+      'leads.json': leads.filter((lead) => !isDemoRecord(lead)),
+      'estimates.json': estimates.filter((estimate) => !demoEstimateIds.has(estimate.id)),
+      'notes.json': notes.filter((note) => !isDemoRecord(note) && !demoLeadIds.has(note.leadId)),
+      'partners.json': partners,
+      'assignments.json': assignments.filter((assignment) => !isDemoRecord(assignment) && !demoEstimateIds.has(assignment.estimateId)),
+      'monthly-accounts.json': monthlyAccounts.filter((account) => !isDemoRecord(account) && !demoLeadIds.has(account.leadId))
+    };
+
+    await Promise.all(Object.entries(next).map(([name, records]) => this.#writeCollection(name, records)));
+
+    return {
+      removed: {
+        runs: runs.length - next['diagnosis-runs.json'].length,
+        leads: leads.length - next['leads.json'].length,
+        estimates: estimates.length - next['estimates.json'].length,
+        notes: notes.length - next['notes.json'].length,
+        assignments: assignments.length - next['assignments.json'].length,
+        monthlyAccounts: monthlyAccounts.length - next['monthly-accounts.json'].length
+      }
+    };
+  }
+
   async #readCollection(name) {
     await mkdir(this.dataDir, { recursive: true });
     try {
@@ -160,6 +202,10 @@ export class JsonStore {
     await mkdir(this.dataDir, { recursive: true });
     await writeFile(join(this.dataDir, name), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
   }
+}
+
+function isDemoRecord(record) {
+  return Boolean(record?.demoFixtureId);
 }
 
 function withRecordMeta(prefix, record) {

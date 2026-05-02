@@ -707,15 +707,15 @@ export function analyzeHtml({ url, html, industry, goal, performance }) {
     issues.push(issue(url, ISSUE_DEFS.openGraph, 'og:title 또는 og:description 메타 정보가 확인되지 않았습니다.'));
   }
 
-  if (!hasPricingInfo(text)) {
+  if (shouldRequirePricingInfo(metadata) && !hasPricingInfo(text)) {
     issues.push(issue(url, ISSUE_DEFS.pricing, '가격, 비용, 예산, 견적 기준 또는 견적 안내가 확인되지 않았습니다.'));
   }
 
-  if (!hasProcessInfo(text)) {
+  if (shouldRequireProcessInfo(metadata) && !hasProcessInfo(text)) {
     issues.push(issue(url, ISSUE_DEFS.process, '상담, 구매, 납품, 서비스 진행 절차 설명이 명확하게 확인되지 않았습니다.'));
   }
 
-  if (!hasComparisonInfo(text)) {
+  if (shouldRequireComparisonInfo(metadata) && !hasComparisonInfo(text)) {
     issues.push(issue(url, ISSUE_DEFS.comparison, '비교, 대안, 장단점, 선택 기준 콘텐츠가 확인되지 않았습니다.'));
   }
 
@@ -871,6 +871,23 @@ function hasExternalCanonical(url, canonical) {
 function hasWeakHeadingStructure(metadata) {
   if (metadata.headingStats.h1Count !== 1) return true;
   return metadata.wordCount >= 80 && metadata.headingStats.h2Count === 0;
+}
+
+function shouldRequirePricingInfo(metadata) {
+  return !isCommerceOverviewPage(metadata);
+}
+
+function shouldRequireProcessInfo(metadata) {
+  return !isCommerceOverviewPage(metadata);
+}
+
+function shouldRequireComparisonInfo(metadata) {
+  return !isCommerceOverviewPage(metadata);
+}
+
+function isCommerceOverviewPage(metadata = {}) {
+  return metadata.businessCategory?.id === 'commerce' &&
+    ['home', 'general', 'portfolio', 'article'].includes(metadata.pageType);
 }
 
 function hasPricingInfo(text) {

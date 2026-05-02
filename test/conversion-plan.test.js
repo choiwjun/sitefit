@@ -5,6 +5,15 @@ import { createSalesConversionPlan, createTrustEvidenceSummary } from '../src/sa
 
 test('creates a sales conversion plan from diagnosis issues', () => {
   const plan = createSalesConversionPlan({
+    scores: {
+      overall: 62,
+      conversion: 48,
+      'technical-seo': 71
+    },
+    businessCategory: {
+      label: 'B2B 서비스',
+      confidence: 3
+    },
     issues: [
       { name: 'canonical 링크 누락', workType: 'technical-seo', impact: 'medium', expectedScope: 'small', difficulty: 'easy', owner: 'developer' },
       { name: '주요 상담 CTA 부족', workType: 'conversion-improvement', impact: 'high', expectedScope: 'medium', difficulty: 'normal', owner: 'planner' },
@@ -22,6 +31,11 @@ test('creates a sales conversion plan from diagnosis issues', () => {
   assert.equal(plan.expertRequiredIssueCount, 2);
   assert.equal(plan.recommendedPackages.length >= 2, true);
   assert.equal(plan.recommendedPackages[0].matchedIssueCount > 0, true);
+  assert.equal(typeof plan.salesTalkTrack.headline, 'string');
+  assert.match(plan.salesTalkTrack.headline, /B2B 서비스|전환|기술|상담/);
+  assert.ok(plan.salesTalkTrack.talkingPoints.length >= 3);
+  assert.equal(typeof plan.recommendedPackages[0].salesAngle, 'string');
+  assert.match(plan.recommendedPackages[0].salesAngle, /영향|문의|검색|상담|전환/);
   assert.match(plan.estimatedTimeline, /주/);
   assert.ok(plan.nextActions.some((item) => item.includes('견적')));
 });

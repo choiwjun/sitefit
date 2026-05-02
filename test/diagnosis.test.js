@@ -30,6 +30,31 @@ test('creates evidence-backed issue cards for missing search and conversion stru
   assert.ok(result.issues.some((issue) => issue.layer === 'conversion' && issue.name === '주요 상담 CTA 부족'));
 });
 
+test('does not flag generic pricing gaps on commerce overview pages', () => {
+  const html = `
+    <!doctype html>
+    <html lang="ko">
+      <head>
+        <title>Seasonal Shop | Example Store</title>
+        <meta name="description" content="Shop seasonal product collections, store best sellers, cart benefits, delivery and review highlights.">
+      </head>
+      <body>
+        <h1>Seasonal Shop</h1>
+        <p>Discover product collections, store best sellers, cart benefits, delivery information and customer reviews.</p>
+      </body>
+    </html>
+  `;
+
+  const result = analyzeHtml({
+    url: 'https://shop.example.com/',
+    html
+  });
+
+  assert.equal(result.metadata.businessCategory.id, 'commerce');
+  assert.equal(result.metadata.pageType, 'home');
+  assert.equal(result.issues.some((issue) => issue.name === '가격 또는 견적 기준 부족'), false);
+});
+
 test('rewards pages with metadata, FAQ, trust sources, and CTA', () => {
   const html = `
     <!doctype html>

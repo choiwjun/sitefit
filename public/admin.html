@@ -14,7 +14,7 @@
         <a href="/admin-login.html">관리자 로그인</a>
       </nav>
     </header>
-    <main>
+    <main class="admin-main">
       <section class="admin-hero">
         <div>
           <p class="eyebrow">영업 운영 대시보드</p>
@@ -24,7 +24,7 @@
         <div id="admin-summary" class="metric-grid">불러오는 중...</div>
       </section>
 
-      <section class="toolbar-panel">
+      <section class="toolbar-panel admin-toolbar-panel">
         <label>
           검색
           <input id="admin-search" type="search" placeholder="회사명, URL, 이메일 검색">
@@ -49,9 +49,35 @@
             <option value="rejected">거절</option>
           </select>
         </label>
+        <label>
+          데이터 범위
+          <select id="demo-scope-filter" data-demo-scope-filter>
+            <option value="all">전체</option>
+            <option value="real">실고객만</option>
+            <option value="demo">데모만</option>
+          </select>
+        </label>
       </section>
 
-      <section class="panel">
+      <section class="panel admin-utility-panel" data-demo-runner>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Demo</p>
+            <h2>영업 데모 실행</h2>
+          </div>
+        </div>
+        <form id="demo-run-form" class="compact-form">
+          <label>
+            데모 업종
+            <select id="demo-fixture-select" name="fixtureId"></select>
+          </label>
+          <button type="submit">데모 리포트 생성</button>
+        </form>
+        <button id="demo-cleanup-button" data-demo-cleanup class="button secondary" type="button">데모 데이터 정리</button>
+        <div id="demo-run-result" class="table-list">영업 시연용 샘플을 선택하세요.</div>
+      </section>
+
+      <section class="panel admin-pipeline-panel">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Pipeline</p>
@@ -150,7 +176,10 @@
         partners: [],
         assignments: [],
         monthly: [],
-        packages: []
+        packages: [],
+        demoFixtures: [],
+        demoRunMessage: '',
+        demoRunResult: null
       };
 
       const leadStatuses = ['consultation_requested', 'consultation_scheduled', 'consultation_complete', 'estimate_pending', 'estimate_sent', 'negotiation', 'contracted', 'lost'];
@@ -178,11 +207,14 @@
       document.querySelector('#admin-search').addEventListener('input', renderAdmin);
       document.querySelector('#grade-filter').addEventListener('change', renderAdmin);
       document.querySelector('#estimate-filter').addEventListener('change', renderAdmin);
+      document.querySelector('#demo-scope-filter').addEventListener('change', renderAdmin);
       document.querySelector('#note-form').addEventListener('submit', saveNote);
       document.querySelector('#rediagnosis-form').addEventListener('submit', compareRediagnosis);
+      document.querySelector('#demo-run-form').addEventListener('submit', createDemoRun);
+      document.querySelector('#demo-cleanup-button').addEventListener('click', deleteDemoData);
 
       async function loadAdmin() {
-        const [summary, leads, runs, estimates, notes, partners, assignments, monthly, packages] = await Promise.all([
+        const [summary, leads, runs, estimates, notes, partners, assignments, monthly, packages, demoFixtures] = await Promise.all([
           adminFetch('/api/admin/summary').then((response) => response.json()),
           adminFetch('/api/admin/leads').then((response) => response.json()),
           adminFetch('/api/admin/runs').then((response) => response.json()),
@@ -191,7 +223,8 @@
           adminFetch('/api/admin/partners').then((response) => response.json()),
           adminFetch('/api/admin/assignments').then((response) => response.json()),
           adminFetch('/api/admin/monthly-accounts').then((response) => response.json()),
-          adminFetch('/api/packages').then((response) => response.json())
+          adminFetch('/api/packages').then((response) => response.json()),
+          adminFetch('/api/admin/demo-fixtures').then((response) => response.json())
         ]);
 
         state.summary = summary;
@@ -203,6 +236,7 @@
         state.assignments = assignments.assignments || [];
         state.monthly = monthly.accounts || [];
         state.packages = packages.packages || [];
+        state.demoFixtures = demoFixtures.fixtures || [];
         renderAdmin();
       }
 
@@ -214,7 +248,34 @@
         renderEstimates();
         renderRuns();
         renderOperations();
+        renderDemoFixtures();
         bindStatusControls();
+      }
+
+      function renderDemoFixtures() {
+        const select = document.querySelector('#demo-fixture-select');
+        select.innerHTML = state.demoFixtures.map((fixture) => `
+          <option value="${escapeHtml(fixture.id)}">${escapeHtml(fixture.expectedTalkLabel || fixture.label)} · ${escapeHtml(fixture.label)}</option>
+        `).join('');
+        document.querySelector('#demo-run-result').innerHTML = state.demoRunMessage
+          ? renderDemoRunResult()
+          : '<p class="empty-state">영업 시연용 샘플을 선택하세요.</p>';
+      }
+
+      function renderDemoRunResult() {
+        const result = state.demoRunResult || {};
+        const title = result.action === 'cleanup' ? '정리 완료' : '생성 완료';
+        return `
+          <div class="stack-row">
+            <strong>${title}</strong>
+            <p>${escapeHtml(state.demoRunMessage)}</p>
+            <div class="row dense">
+              ${result.reportUrl ? `<a class="button secondary demo-report-link" href="${escapeHtml(result.reportUrl)}">리포트 열기</a>` : ''}
+              ${result.leadId ? `<span>리드 ${escapeHtml(result.leadId)}</span>` : ''}
+              ${result.estimateId ? `<span>견적 ${escapeHtml(result.estimateId)}</span>` : ''}
+            </div>
+          </div>
+        `;
       }
 
       function renderSummary() {
@@ -242,7 +303,7 @@
                 <div class="pipeline-card">
                   <strong>${escapeHtml(lead.company || lead.name || lead.email || lead.id)}</strong>
                   <span>${escapeHtml(lead.siteUrl || '')}</span>
-                  <small>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')} | ${escapeHtml(labelForBudget(lead.budgetRange))}</small>
+                  ${renderPipelineLeadSummary(lead)}
                 </div>
               `).join('') || '<p class="empty-state">없음</p>'}
             </div>
@@ -250,26 +311,95 @@
         }).join('');
       }
 
+      function renderPipelineLeadSummary(lead) {
+        return `
+          <dl class="pipeline-lead-summary">
+            <div><dt>신청자</dt><dd>${escapeHtml(lead.name || '미입력')}</dd></div>
+            <div><dt>이메일</dt><dd>${escapeHtml(lead.email || '미입력')}</dd></div>
+            <div><dt>희망 작업</dt><dd>${escapeHtml(labelForDesiredWork(lead.desiredWork))}</dd></div>
+            <div><dt>일정</dt><dd>${escapeHtml(labelForTimeline(lead.timeline))}</dd></div>
+            <div><dt>예산</dt><dd>${escapeHtml(labelForBudget(lead.budgetRange))}</dd></div>
+            <div><dt>진단 이슈</dt><dd>${escapeHtml(lead.issueCount ?? 0)}건 · 중요 ${escapeHtml(lead.highImpactIssueCount ?? 0)}건</dd></div>
+          </dl>
+          <small>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')}</small>
+        `;
+      }
+
       function renderLeads() {
         const leads = filteredLeads();
         document.querySelector('#lead-list').innerHTML = leads.length
           ? leads.map((lead) => `
-            <div class="row dense">
-              <strong>${escapeHtml(lead.company || lead.name || lead.email || lead.id)}</strong>
-              <span>
-                <select data-lead-status="${escapeHtml(lead.id)}">
-                  ${leadStatuses.map((status) => `<option value="${status}" ${status === lead.salesStatus ? 'selected' : ''}>${leadStatusLabels[status]}</option>`).join('')}
-                </select>
-              </span>
-              <span>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')} / ${escapeHtml(labelForBudget(lead.budgetRange))}</span>
+            <div class="lead-action-card">
+              <div class="row dense">
+                <strong>${escapeHtml(lead.company || lead.name || lead.email || lead.id)}</strong>
+                <span>
+                  <select data-lead-status="${escapeHtml(lead.id)}">
+                    ${leadStatuses.map((status) => `<option value="${status}" ${status === lead.salesStatus ? 'selected' : ''}>${leadStatusLabels[status]}</option>`).join('')}
+                  </select>
+                </span>
+                <span>${escapeHtml(leadGradeLabels[lead.leadScore?.grade] || '미분류')} / ${escapeHtml(labelForBudget(lead.budgetRange))}</span>
+              </div>
+              ${renderLeadContactDetails(lead)}
+              ${renderLeadNextAction(lead)}
             </div>
           `).join('')
           : '<p class="empty-state">조건에 맞는 리드가 없습니다.</p>';
       }
 
+      function renderLeadContactDetails(lead) {
+        return `
+          <div class="lead-contact-details">
+            <div>
+              <span>신청자</span>
+              <strong>${escapeHtml(lead.name || '미입력')}</strong>
+            </div>
+            <div>
+              <span>이메일</span>
+              <strong><a href="mailto:${escapeHtml(lead.email || '')}">${escapeHtml(lead.email || '미입력')}</a></strong>
+            </div>
+            <div>
+              <span>사이트</span>
+              <strong>${lead.siteUrl ? `<a href="${escapeHtml(lead.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(lead.siteUrl)}</a>` : '미입력'}</strong>
+            </div>
+            <div>
+              <span>희망 작업</span>
+              <strong>${escapeHtml(labelForDesiredWork(lead.desiredWork))}</strong>
+            </div>
+            <div>
+              <span>일정</span>
+              <strong>${escapeHtml(labelForTimeline(lead.timeline))}</strong>
+            </div>
+            <div>
+              <span>진단 이슈</span>
+              <strong>${escapeHtml(lead.issueCount ?? 0)}건 · 중요 ${escapeHtml(lead.highImpactIssueCount ?? 0)}건</strong>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderLeadNextAction(lead) {
+        const run = findLatestRunForLead(lead);
+        const talkTrack = run?.salesConversion?.salesTalkTrack;
+        if (!talkTrack) {
+          return '<p class="detail-note">최신 진단 리포트가 연결되면 상담 멘트가 표시됩니다.</p>';
+        }
+        return `
+          <div class="lead-next-action">
+            <strong>${escapeHtml(talkTrack.headline)}</strong>
+            <p>${escapeHtml((talkTrack.talkingPoints || [])[0] || '')}</p>
+          </div>
+        `;
+      }
+
+      function findLatestRunForLead(lead) {
+        const leadUrl = normalizeUrl(lead.siteUrl);
+        return state.runs.find((run) => normalizeUrl(run.url) === leadUrl);
+      }
+
       function renderNotes() {
-        document.querySelector('#note-list').innerHTML = state.notes.length
-          ? state.notes.slice().reverse().map((note) => `
+        const notes = filteredNotes();
+        document.querySelector('#note-list').innerHTML = notes.length
+          ? notes.slice().reverse().map((note) => `
             <div class="stack-row">
               <strong>${escapeHtml(note.leadId || note.runId || note.id)}</strong>
               <p>${escapeHtml(note.body || note.note || '')}</p>
@@ -281,7 +411,7 @@
 
       function renderEstimates() {
         const filter = document.querySelector('#estimate-filter').value;
-        const estimates = filter ? state.estimates.filter((estimate) => estimate.status === filter) : state.estimates;
+        const estimates = filteredEstimates().filter((estimate) => !filter || estimate.status === filter);
         document.querySelector('#estimate-list').innerHTML = estimates.length
           ? estimates.map((estimate) => `
             <div class="row dense">
@@ -298,10 +428,11 @@
       }
 
       function renderRuns() {
-        document.querySelector('#run-list').innerHTML = state.runs.length
-          ? state.runs.slice(0, 12).map((run) => `
+        const runs = filteredRuns();
+        document.querySelector('#run-list').innerHTML = runs.length
+          ? runs.slice(0, 12).map((run) => `
             <div class="row dense">
-              <strong><a href="/reports/${encodeURIComponent(run.id)}?token=${encodeURIComponent(run.shareToken || '')}">${escapeHtml(run.url)}</a></strong>
+              <strong><a href="/reports/${encodeURIComponent(run.id)}?token=${encodeURIComponent(run.shareToken || '')}">${escapeHtml(run.url)}</a>${isDemoRecord(run) ? ' <span class="demo-badge">Demo</span>' : ''}</strong>
               <span>${escapeHtml(run.pagesAnalyzed || 1)}개 페이지</span>
               <span>점수 ${escapeHtml(run.scores?.overall ?? '-')} · ${escapeHtml(run.salesConversion?.estimatedTimeline || '견적 검토')}</span>
             </div>
@@ -320,7 +451,7 @@
       }
 
       function renderSalesNextActions() {
-        const latestRun = state.runs[0];
+        const latestRun = filteredRuns()[0];
         const plan = latestRun?.salesConversion;
         if (!plan) {
           return '<div class="stack-row"><strong>추천 패키지</strong><p>최신 진단 후 표시됩니다.</p></div>';
@@ -393,15 +524,84 @@
           : `<p class="empty-state">${escapeHtml(data.message || '재진단 비교를 진행할 수 없습니다.')}</p>`;
       }
 
+      async function createDemoRun(event) {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.currentTarget));
+        const response = await adminFetch('/api/admin/demo-runs', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        state.demoRunMessage = response.ok
+          ? `${data.fixture?.label || payload.fixtureId} 데모 진단, 리드, 견적 초안을 생성했습니다. 리포트 ID: ${data.run?.id || '-'}`
+          : data.message || '데모 리포트를 생성할 수 없습니다.';
+        state.demoRunResult = response.ok ? {
+          action: 'create',
+          runId: data.run?.id,
+          reportUrl: data.run?.id ? `/reports/${encodeURIComponent(data.run.id)}?token=${encodeURIComponent(data.run.shareToken || '')}` : '',
+          leadId: data.lead?.id,
+          estimateId: data.estimate?.id
+        } : null;
+        document.querySelector('#demo-scope-filter').value = 'demo';
+        await loadAdmin();
+      }
+
+      async function deleteDemoData() {
+        const confirmation = prompt('데모 run, 리드, 견적, 관련 메모를 정리하려면 DELETE_DEMO_DATA를 입력하세요.');
+        if (confirmation !== 'DELETE_DEMO_DATA') return;
+        const response = await adminFetch('/api/admin/demo-data', {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ confirm: confirmation })
+        });
+        const data = await response.json();
+        state.demoRunMessage = response.ok
+          ? `데모 데이터 정리 완료: 진단 ${data.removed?.runs || 0}건, 리드 ${data.removed?.leads || 0}건, 견적 ${data.removed?.estimates || 0}건`
+          : data.message || '데모 데이터를 정리할 수 없습니다.';
+        state.demoRunResult = { action: 'cleanup' };
+        document.querySelector('#demo-scope-filter').value = 'demo';
+        await loadAdmin();
+      }
+
       function filteredLeads() {
         const keyword = document.querySelector('#admin-search').value.trim().toLowerCase();
         const grade = document.querySelector('#grade-filter').value;
+        const scope = demoScopeFilterValue();
         return state.leads.filter((lead) => {
           const haystack = `${lead.company || ''} ${lead.name || ''} ${lead.email || ''} ${lead.siteUrl || ''}`.toLowerCase();
           const gradeOk = !grade || lead.leadScore?.grade === grade;
           const keywordOk = !keyword || haystack.includes(keyword);
-          return gradeOk && keywordOk;
+          const scopeOk = scope === 'all' || (scope === 'demo' ? isDemoRecord(lead) : !isDemoRecord(lead));
+          return gradeOk && keywordOk && scopeOk;
         });
+      }
+
+      function filteredRuns() {
+        const scope = demoScopeFilterValue();
+        return state.runs.filter((run) => scope === 'all' || (scope === 'demo' ? isDemoRecord(run) : !isDemoRecord(run)));
+      }
+
+      function filteredEstimates() {
+        const demoLeadIds = new Set(state.leads.filter(isDemoRecord).map((lead) => lead.id));
+        const scope = demoScopeFilterValue();
+        return state.estimates.filter((estimate) => {
+          const isDemoEstimate = demoLeadIds.has(estimate.leadId) || isDemoRecord(estimate);
+          return scope === 'all' || (scope === 'demo' ? isDemoEstimate : !isDemoEstimate);
+        });
+      }
+
+      function filteredNotes() {
+        const visibleLeadIds = new Set(filteredLeads().map((lead) => lead.id));
+        return state.notes.filter((note) => !note.leadId || visibleLeadIds.has(note.leadId));
+      }
+
+      function isDemoRecord(record) {
+        return Boolean(record?.demoFixtureId);
+      }
+
+      function demoScopeFilterValue() {
+        return document.querySelector('#demo-scope-filter')?.value || 'all';
       }
 
       async function adminFetch(url, options = {}) {
@@ -418,6 +618,35 @@
           'over-700': '700만 원 이상',
           unknown: '아직 모름'
         }[value] || value || '미입력';
+      }
+
+      function labelForDesiredWork(value) {
+        return {
+          'diagnosis-only': '진단만',
+          'fix-only': '수정 작업까지',
+          'fix-and-monthly': '수정 작업과 월관리',
+          'monthly-management': '월관리'
+        }[value] || value || '미입력';
+      }
+
+      function labelForTimeline(value) {
+        return {
+          urgent: '긴급',
+          month: '1개월 이내',
+          quarter: '분기 내',
+          flexible: '일정 협의',
+          'this-quarter': '분기 내'
+        }[value] || value || '미입력';
+      }
+
+      function normalizeUrl(value) {
+        try {
+          const parsed = new URL(value || '');
+          parsed.hash = '';
+          return parsed.toString().replace(/\/$/, '');
+        } catch {
+          return String(value || '').replace(/\/$/, '');
+        }
       }
 
       function escapeHtml(value) {

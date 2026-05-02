@@ -6,9 +6,22 @@ test('public diagnosis form only asks for the site URL before analysis', async (
   const html = await readFile('public/index.html', 'utf8');
 
   assert.match(html, /name="siteUrl"/);
+  assert.match(html, /inputmode="url"/);
+  assert.match(html, /example\.com/);
   assert.match(html, /URL 진단 시작/);
+  assert.doesNotMatch(html, /href="\/admin\.html"/);
   assert.doesNotMatch(html, /name="industry"/);
   assert.doesNotMatch(html, /name="goal"/);
+});
+
+test('public report UI hides technical scoring disclaimer copy', async () => {
+  const script = await readFile('public/app.js', 'utf8');
+
+  assert.doesNotMatch(script, /Lighthouse-style/);
+  assert.doesNotMatch(script, /PageSpeed/);
+  assert.doesNotMatch(script, /AI API/);
+  assert.doesNotMatch(script, /SiteFit rule/);
+  assert.doesNotMatch(script, /보장하지 않습니다/);
 });
 
 test('public result does not cap work orders at five items', async () => {
@@ -37,8 +50,23 @@ test('public diagnosis result is grouped into readable summary sections', async 
   const script = await readFile('public/app.js', 'utf8');
   const css = await readFile('public/styles.css', 'utf8');
 
+  assert.match(script, /한눈에 보는 진단 결과/);
+  assert.match(script, /리포트 핵심 요약/);
+  assert.match(script, /먼저 볼 개선 항목/);
+  assert.match(script, /상세 진단 근거 보기/);
+  assert.match(script, /검증용 상세 정보/);
+  assert.match(script, /일반 사용자용 요약/);
+  assert.match(script, /무슨 뜻인가요\?/);
+  assert.match(script, /왜 중요한가요\?/);
+  assert.match(script, /먼저 이렇게 고치세요/);
+  assert.match(script, /검색 노출 기본/);
+  assert.match(script, /AI 답변 준비/);
+  assert.match(script, /문의\/구매 전환/);
+  assert.match(css, /\.plain-summary-grid/);
+  assert.match(css, /\.plain-issue-explainer/);
+
   assert.match(script, /핵심 요약/);
-  assert.match(script, /우선 개선 항목/);
+  assert.doesNotMatch(script, /<h3>우선 개선 항목<\/h3>/);
   assert.match(script, /진단 영역별 결과/);
   assert.match(script, /페이지별 분석 근거/);
   assert.match(script, /전체 이슈 펼쳐보기/);
@@ -58,9 +86,20 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /진단 결과 기반 개선안 받기/);
   assert.match(script, /견적 전환 제안/);
   assert.match(script, /진단 신뢰 근거/);
+  assert.match(script, /salesTalkTrack/);
+  assert.match(script, /talkingPoints/);
+  assert.match(script, /salesAngle/);
   assert.match(css, /\.result-overview/);
   assert.match(css, /\.issue-group-grid/);
   assert.match(css, /\.readable-issue-card/);
   assert.match(css, /\.package-grid/);
   assert.match(css, /\.trust-evidence-grid/);
+});
+
+test('public report UI does not expose package price ranges before consultation', async () => {
+  const script = await readFile('public/app.js', 'utf8');
+
+  assert.doesNotMatch(script, /formatPriceRange/);
+  assert.doesNotMatch(script, /priceRange/);
+  assert.match(script, /상담에서 범위 확정/);
 });

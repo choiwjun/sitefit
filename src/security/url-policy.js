@@ -2,9 +2,10 @@ const BLOCKED_HOSTS = new Set(['localhost', 'localhost.localdomain']);
 
 export function validateCrawlUrl(input) {
   let parsed;
+  const normalizedInput = normalizeUrlInput(input);
 
   try {
-    parsed = new URL(input);
+    parsed = new URL(normalizedInput);
   } catch {
     return { ok: false, reason: 'URL 형식이 올바르지 않습니다.' };
   }
@@ -24,6 +25,12 @@ export function validateCrawlUrl(input) {
   }
 
   return { ok: true, url: parsed.toString(), hostname };
+}
+
+function normalizeUrlInput(input) {
+  const value = String(input || '').trim();
+  if (/^[a-z][a-z\d+.-]*:/i.test(value)) return value;
+  return `https://${value}`;
 }
 
 function isBlockedIpv4(hostname) {

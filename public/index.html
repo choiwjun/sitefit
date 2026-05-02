@@ -10,7 +10,6 @@
   <body>
     <header class="topbar">
       <strong>사이트핏 SiteFit</strong>
-      <a href="/admin.html">관리자</a>
     </header>
 
     <main>
@@ -24,7 +23,7 @@
         <form id="diagnosis-form" class="panel">
           <label>
             사이트 URL
-            <input name="siteUrl" type="url" placeholder="https://example.com" autocomplete="url" required>
+            <input name="siteUrl" type="text" inputmode="url" placeholder="example.com 또는 https://example.com" autocomplete="url" required>
           </label>
           <button type="submit">URL 진단 시작</button>
           <p class="form-note">업종과 목표는 먼저 묻지 않습니다. 초기 진단은 URL 기반 실제 수집 데이터로 진행하고, 상담 신청 단계에서 필요한 정보를 보강합니다.</p>
@@ -54,7 +53,7 @@
           <input name="name" placeholder="이름" autocomplete="name" required>
           <input name="company" placeholder="회사명" autocomplete="organization">
           <input name="email" type="email" placeholder="이메일" autocomplete="email" required>
-          <input name="siteUrl" type="url" placeholder="사이트 URL" autocomplete="url" required>
+          <input name="siteUrl" type="text" inputmode="url" placeholder="사이트 URL" autocomplete="url" required>
           <select name="budgetRange" required>
             <option value="under-100">100만 원 이하</option>
             <option value="100-300">100만~300만 원</option>

@@ -16,6 +16,7 @@ import { compareDiagnosisRuns } from './diagnosis/compare-runs.js';
 import { analyzeLinkStatus } from './diagnosis/link-status.js';
 import { analyzeSiteAssets } from './diagnosis/site-assets.js';
 import { calculateWebQualityScores } from './diagnosis/web-quality.js';
+import { DEMO_SITE_FIXTURES, analyzeDemoSiteFixture } from './demo/site-fixtures.js';
 import { renderReportHtml } from './reporting/render-report-html.js';
 import { createMonthlyAccount } from './operations/monthly-management.js';
 import { assignPartner } from './operations/partner-assignment.js';
@@ -31,7 +32,7 @@ const CONFIG = loadConfig();
 const DEFAULT_PORT = CONFIG.port;
 const PUBLIC_DIR = join(process.cwd(), 'public');
 
-export function createServer({ dataDir = 'data', fetcher, renderer, adminToken = CONFIG.adminToken, crawler = CONFIG.crawler, chatClient = new MockChatClient() } = {}) {
+export function createServer({ dataDir = 'data', fetcher, renderer, adminToken = CONFIG.adminToken, nodeEnv = process.env.NODE_ENV || 'development', crawler = CONFIG.crawler, chatClient = new MockChatClient() } = {}) {
   const store = new JsonStore(dataDir);
 
   return createHttpServer(async (request, response) => {
@@ -47,11 +48,11 @@ export function createServer({ dataDir = 'data', fetcher, renderer, adminToken =
       }
 
       if (request.method === 'POST' && url.pathname === '/api/session') {
-        return handleSession(request, response, adminToken);
+        return handleSession(request, response, adminToken, nodeEnv);
       }
 
-      if (requiresAdminAuth(request, url) && !isAuthorized(request, adminToken)) {
-        return sendJson(response, 401, { error: 'unauthorized' });
+      if (requiresAdminAuth(request, url) && !isAuthorized(request, adminToken, nodeEnv)) {
+        return sendJson(response, 401, authRequiredPayload(adminToken, nodeEnv));
       }
 
       if (request.method === 'POST' && url.pathname === '/api/diagnose') {
@@ -62,19 +63,38 @@ export function createServer({ dataDir = 'data', fetcher, renderer, adminToken =
         return sendJson(response, 200, { packages: SI_PACKAGES });
       }
 
+      if (request.method === 'GET' && url.pathname === '/api/admin/demo-fixtures') {
+        return sendJson(response, 200, {
+          fixtures: DEMO_SITE_FIXTURES.map(({ id, label, industry, expectedTalkLabel }) => ({
+            id,
+            label,
+            industry,
+            expectedTalkLabel
+          }))
+        });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/admin/demo-runs') {
+        return handleAdminDemoRun(request, response, store, chatClient);
+      }
+
+      if (request.method === 'DELETE' && url.pathname === '/api/admin/demo-data') {
+        return handleAdminDemoDataDelete(request, response, store);
+      }
+
       const apiReportMatch = url.pathname.match(/^\/api\/reports\/([^/]+)$/);
       if (request.method === 'GET' && apiReportMatch) {
-        return handleReportJson(request, response, store, apiReportMatch[1], url, adminToken);
+        return handleReportJson(request, response, store, apiReportMatch[1], url, adminToken, nodeEnv);
       }
 
       const aiReportMatch = url.pathname.match(/^\/api\/ai\/reports\/([^/]+)$/);
       if (request.method === 'POST' && aiReportMatch) {
-        return handleAiReport(request, response, store, aiReportMatch[1], chatClient, url, adminToken);
+        return handleAiReport(request, response, store, aiReportMatch[1], chatClient, url, adminToken, nodeEnv);
       }
 
       const htmlReportMatch = url.pathname.match(/^\/reports\/([^/]+)$/);
       if (request.method === 'GET' && htmlReportMatch) {
-        return handleReportHtml(request, response, store, htmlReportMatch[1], url, adminToken);
+        return handleReportHtml(request, response, store, htmlReportMatch[1], url, adminToken, nodeEnv);
       }
 
       if (request.method === 'POST' && url.pathname === '/api/leads') {
@@ -159,7 +179,7 @@ export function createServer({ dataDir = 'data', fetcher, renderer, adminToken =
 }
 
 function requiresAdminAuth(request, url) {
-  if (request.method === 'GET' && url.pathname.startsWith('/api/admin/')) return true;
+  if (url.pathname.startsWith('/api/admin/')) return true;
   if (url.pathname.startsWith('/api/estimates')) return true;
   if (url.pathname.startsWith('/api/rediagnosis')) return true;
   if (url.pathname.startsWith('/api/notes')) return true;
@@ -170,14 +190,24 @@ function requiresAdminAuth(request, url) {
   return false;
 }
 
-function isAuthorized(request, adminToken) {
-  if (!adminToken) return true;
+function isAuthorized(request, adminToken, nodeEnv = process.env.NODE_ENV || 'development') {
+  if (!adminToken) return nodeEnv !== 'production';
   return request.headers.authorization === `Bearer ${adminToken}` ||
     parseCookies(request.headers.cookie || '').sitefit_admin === sessionValue(adminToken);
 }
 
-async function handleSession(request, response, adminToken) {
+function authRequiredPayload(adminToken, nodeEnv) {
+  if (!adminToken && nodeEnv === 'production') {
+    return { error: 'admin_token_required' };
+  }
+  return { error: 'unauthorized' };
+}
+
+async function handleSession(request, response, adminToken, nodeEnv) {
   if (!adminToken) {
+    if (nodeEnv === 'production') {
+      return sendJson(response, 503, { error: 'admin_token_required' });
+    }
     return sendJson(response, 200, { ok: true, mode: 'disabled' });
   }
 
@@ -301,7 +331,9 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
   });
   result.salesConversion = createSalesConversionPlan({
     issues,
-    workOrders: result.report?.workOrders || []
+    workOrders: result.report?.workOrders || [],
+    scores,
+    businessCategory: categoryForSalesConversation(inferredIndustry, siteStructure.businessCategory)
   });
   result.trustEvidence = createTrustEvidenceSummary({
     analysisCoverage,
@@ -320,15 +352,27 @@ function buildAnalysisCoverage({ crawl, pageResults, linkStatus, maxPages, maxDe
   const analyzedPages = pageResults.length;
   const discoveredUrls = analyzedPages + skippedUrls;
   const renderedPages = crawl.pages?.filter((page) => page.rendered).length || 0;
+  const crawlBudgetUsageRate = maxPages
+    ? Math.min(100, Math.round((analyzedPages / maxPages) * 100))
+    : 100;
   const analysisRate = discoveredUrls
     ? Math.round((analyzedPages / discoveredUrls) * 100)
     : 100;
+  const skippedReasonCounts = sameOriginSkipped.reduce((counts, item) => {
+    const reason = item.reason || 'unknown';
+    counts[reason] = (counts[reason] || 0) + 1;
+    return counts;
+  }, {});
+  const isSampledCrawl = skippedUrls > 0 || (maxPages ? analyzedPages >= maxPages : false);
 
   return {
     analyzedPages,
     discoveredUrls,
     skippedUrls,
     analysisRate,
+    crawlBudgetUsageRate,
+    isSampledCrawl,
+    skippedReasonCounts,
     maxPages,
     maxDepth,
     maxBytes,
@@ -336,6 +380,29 @@ function buildAnalysisCoverage({ crawl, pageResults, linkStatus, maxPages, maxDe
     checkedLinks: linkStatus.checkedLinks?.length || 0,
     skippedLinks: linkStatus.skippedLinks?.length || 0,
     renderedPages
+  };
+}
+
+function categoryForSalesConversation(industry, detectedCategory) {
+  if (!industry || industry === 'unknown') return detectedCategory;
+  if (detectedCategory?.id === industry) return detectedCategory;
+
+  const labels = {
+    'b2b': 'B2B 서비스',
+    'b2b-service': 'B2B 서비스',
+    commerce: '쇼핑몰/커머스',
+    healthcare: '병원/의료',
+    education: '교육/학원',
+    manufacturing: '제조/산업',
+    legal: '법률',
+    finance: '금융'
+  };
+
+  return {
+    id: industry,
+    label: labels[industry] || detectedCategory?.label || '현재 사이트',
+    confidence: detectedCategory?.confidence || 0,
+    source: 'request'
   };
 }
 
@@ -416,6 +483,63 @@ async function handleLead(request, response, store) {
   return sendJson(response, 201, { lead });
 }
 
+async function handleAdminDemoRun(request, response, store, chatClient) {
+  const body = await readJson(request);
+  const fixture = DEMO_SITE_FIXTURES.find((item) => item.id === body.fixtureId) || DEMO_SITE_FIXTURES[0];
+  const demoRun = {
+    ...analyzeDemoSiteFixture(fixture),
+    demoFixtureId: fixture.id,
+    shareToken: randomBytes(18).toString('hex')
+  };
+  demoRun.summary = `${demoRun.pagesAnalyzed}개 데모 페이지를 분석했습니다. 분석률 ${demoRun.analysisCoverage.analysisRate}% 기준으로 영업 시연용 개선 유형 ${countUniqueIssues(demoRun.issues)}개를 확인했습니다. 종합 준비도 점수: ${demoRun.scores.overall}.`;
+  demoRun.report = await generateAiReportDraft({
+    chatClient,
+    diagnosis: demoRun
+  });
+
+  const run = await store.addDiagnosisRun(demoRun);
+  const lead = await store.addLead({
+    demoFixtureId: fixture.id,
+    salesStatus: 'consultation_requested',
+    name: `${fixture.label} 담당자`,
+    company: fixture.label,
+    email: `${fixture.id}@demo.sitefit.local`,
+    siteUrl: run.url,
+    industry: fixture.industry,
+    budgetRange: '300-700',
+    desiredWork: 'fix-and-monthly',
+    timeline: 'urgent',
+    issueCount: run.issues.length,
+    highImpactIssueCount: run.issues.filter((issue) => issue.impact === 'high').length,
+    leadScore: scoreLead({
+      budgetRange: '300-700',
+      desiredWork: 'fix-and-monthly',
+      timeline: 'urgent',
+      issueCount: run.issues.length,
+      highImpactIssueCount: run.issues.filter((issue) => issue.impact === 'high').length
+    })
+  });
+  const estimate = await store.addEstimate(createEstimateDraft({
+    leadId: lead.id,
+    issues: run.issues,
+    desiredWork: lead.desiredWork
+  }));
+
+  return sendJson(response, 201, { fixture: { id: fixture.id, label: fixture.label }, run, lead, estimate });
+}
+
+async function handleAdminDemoDataDelete(request, response, store) {
+  const body = await readJson(request);
+  if (body.confirm !== 'DELETE_DEMO_DATA') {
+    return sendJson(response, 400, {
+      error: 'confirmation_required',
+      message: '데모 데이터 삭제 확인 문구가 필요합니다.'
+    });
+  }
+
+  return sendJson(response, 200, await store.deleteDemoData());
+}
+
 function validateLeadPayload(body) {
   const requiredFields = ['name', 'email', 'siteUrl', 'budgetRange', 'desiredWork', 'timeline'];
   const fields = requiredFields.filter((field) => !String(body[field] || '').trim());
@@ -486,29 +610,29 @@ async function handleRediagnosisCompare(request, response, store) {
   return sendJson(response, 200, compareDiagnosisRuns({ before, after }));
 }
 
-async function handleReportJson(request, response, store, runId, url, adminToken) {
+async function handleReportJson(request, response, store, runId, url, adminToken, nodeEnv) {
   const runs = await store.listDiagnosisRuns();
   const run = runs.find((item) => item.id === runId);
   if (!run) return sendJson(response, 404, { error: 'report_not_found' });
-  if (!canAccessReport(request, url, run, adminToken)) return sendJson(response, 403, { error: 'report_forbidden' });
+  if (!canAccessReport(request, url, run, adminToken, nodeEnv)) return sendJson(response, 403, { error: 'report_forbidden' });
   return sendJson(response, 200, { run });
 }
 
-async function handleReportHtml(request, response, store, runId, url, adminToken) {
+async function handleReportHtml(request, response, store, runId, url, adminToken, nodeEnv) {
   const runs = await store.listDiagnosisRuns();
   const run = runs.find((item) => item.id === runId);
   if (!run) return sendText(response, 404, '리포트를 찾을 수 없습니다.');
-  if (!canAccessReport(request, url, run, adminToken)) return sendText(response, 403, '리포트 접근 권한이 없습니다.');
+  if (!canAccessReport(request, url, run, adminToken, nodeEnv)) return sendText(response, 403, '리포트 접근 권한이 없습니다.');
 
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   response.end(renderReportHtml(run));
 }
 
-async function handleAiReport(request, response, store, runId, chatClient, url, adminToken) {
+async function handleAiReport(request, response, store, runId, chatClient, url, adminToken, nodeEnv) {
   const runs = await store.listDiagnosisRuns();
   const run = runs.find((item) => item.id === runId);
   if (!run) return sendJson(response, 404, { error: 'diagnosis_run_not_found' });
-  if (!canAccessReport(request, url, run, adminToken)) return sendJson(response, 403, { error: 'report_forbidden' });
+  if (!canAccessReport(request, url, run, adminToken, nodeEnv)) return sendJson(response, 403, { error: 'report_forbidden' });
 
   const report = await generateAiReportDraft({
     chatClient,
@@ -517,8 +641,8 @@ async function handleAiReport(request, response, store, runId, chatClient, url, 
   return sendJson(response, 200, { report });
 }
 
-function canAccessReport(request, url, run, adminToken) {
-  if (isAuthorized(request, adminToken)) return true;
+function canAccessReport(request, url, run, adminToken, nodeEnv) {
+  if (isAuthorized(request, adminToken, nodeEnv)) return true;
   const token = url.searchParams.get('token');
   return Boolean(run.shareToken && token && token === run.shareToken);
 }

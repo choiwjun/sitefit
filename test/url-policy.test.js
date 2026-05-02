@@ -10,6 +10,13 @@ test('accepts public http and https URLs and normalizes missing trailing slash',
   assert.equal(result.url, 'https://example.com/');
 });
 
+test('accepts bare domains and defaults them to https URLs', () => {
+  const result = validateCrawlUrl('naver.com');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.url, 'https://naver.com/');
+});
+
 test('rejects localhost and private network crawl targets', () => {
   const targets = [
     'http://localhost:3000',

@@ -44,6 +44,119 @@ test('serves admin summary from stored diagnosis runs and leads', async () => {
   }
 });
 
+test('admin demo run API creates a sales-ready fixture run and lead', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-demo-run-'));
+  const app = createServer({ dataDir: dir, adminToken: 'secret-token' });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const denied = await fetch(`${baseUrl}/api/admin/demo-runs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fixtureId: 'commerce' })
+    });
+    assert.equal(denied.status, 401);
+
+    const response = await fetch(`${baseUrl}/api/admin/demo-runs`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer secret-token',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ fixtureId: 'commerce' })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(body.run.demoFixtureId, 'commerce');
+    assert.equal(body.run.industry, 'commerce');
+    assert.equal(body.run.analysisCoverage.analysisRate, 100);
+    assert.equal(body.run.trustEvidence.items.some((item) => item.label === '수집 한도 사용'), true);
+    assert.equal(body.lead.siteUrl, body.run.url);
+    assert.equal(body.lead.salesStatus, 'consultation_requested');
+    assert.equal(body.estimate.leadId, body.lead.id);
+    assert.equal(body.estimate.lineItems.length > 0, true);
+
+    const runsResponse = await fetch(`${baseUrl}/api/admin/runs`, {
+      headers: { authorization: 'Bearer secret-token' }
+    });
+    const runs = await runsResponse.json();
+    assert.equal(runs.runs.some((run) => run.id === body.run.id), true);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('admin demo data API requires confirmation and removes only demo records', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-demo-cleanup-'));
+  const app = createServer({ dataDir: dir, adminToken: 'secret-token' });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const headers = {
+      authorization: 'Bearer secret-token',
+      'content-type': 'application/json'
+    };
+
+    const demoResponse = await fetch(`${baseUrl}/api/admin/demo-runs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ fixtureId: 'commerce' })
+    });
+    assert.equal(demoResponse.status, 201);
+
+    const realLeadResponse = await fetch(`${baseUrl}/api/leads`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Lee',
+        company: 'Real Company',
+        email: 'lee@example.com',
+        siteUrl: 'https://real.example.com/',
+        industry: 'b2b',
+        budgetRange: '100-300',
+        desiredWork: 'diagnosis-only',
+        timeline: 'this-quarter',
+        issueCount: 2,
+        highImpactIssueCount: 0
+      })
+    });
+    const { lead: realLead } = await realLeadResponse.json();
+    assert.equal(realLeadResponse.status, 201);
+
+    const rejected = await fetch(`${baseUrl}/api/admin/demo-data`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ confirm: 'wrong' })
+    });
+    assert.equal(rejected.status, 400);
+
+    const response = await fetch(`${baseUrl}/api/admin/demo-data`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ confirm: 'DELETE_DEMO_DATA' })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.removed.runs, 1);
+    assert.equal(body.removed.leads, 1);
+    assert.equal(body.removed.estimates, 1);
+
+    const leadsResponse = await fetch(`${baseUrl}/api/admin/leads`, {
+      headers: { authorization: 'Bearer secret-token' }
+    });
+    const leads = await leadsResponse.json();
+    assert.equal(leads.leads.length, 1);
+    assert.equal(leads.leads[0].id, realLead.id);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('serves health check for deployment probes', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sitefit-health-'));
   const app = createServer({ dataDir: dir });
@@ -216,6 +329,41 @@ test('report routes require a share token when admin auth is configured', async 
   }
 });
 
+test('report share tokens still work when production admin auth is not configured', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-prod-report-token-'));
+  const app = createServer({
+    dataDir: dir,
+    adminToken: '',
+    nodeEnv: 'production',
+    fetcher: async (url) => ({
+      url,
+      status: 200,
+      contentType: 'text/html',
+      html: '<title>Home</title><h1>Home</h1>'
+    })
+  });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const diagnoseResponse = await fetch(`${baseUrl}/api/diagnose`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ siteUrl: 'https://example.com/' })
+    });
+    const { run } = await diagnoseResponse.json();
+
+    const deniedHtml = await fetch(`${baseUrl}/reports/${run.id}`);
+    assert.equal(deniedHtml.status, 403);
+
+    const sharedHtml = await fetch(`${baseUrl}/reports/${run.id}?token=${run.shareToken}`);
+    assert.equal(sharedHtml.status, 200);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('diagnose API uses sitemap URLs as crawl seeds', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sitefit-sitemap-diagnose-'));
   const app = createServer({
@@ -336,7 +484,7 @@ test('diagnose API exposes analysis coverage for trust evidence', async () => {
     const response = await fetch(`${baseUrl}/api/diagnose`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ siteUrl: 'https://example.com/' })
+      body: JSON.stringify({ siteUrl: 'https://example.com/', industry: 'manufacturing' })
     });
     const data = await response.json();
 
@@ -344,6 +492,9 @@ test('diagnose API exposes analysis coverage for trust evidence', async () => {
     assert.equal(data.run.analysisCoverage.maxPages, 2);
     assert.equal(data.run.analysisCoverage.analyzedPages, 2);
     assert.equal(data.run.analysisCoverage.skippedUrls >= 1, true);
+    assert.equal(data.run.analysisCoverage.crawlBudgetUsageRate, 100);
+    assert.equal(data.run.analysisCoverage.isSampledCrawl, true);
+    assert.equal(Object.values(data.run.analysisCoverage.skippedReasonCounts).reduce((sum, count) => sum + count, 0) >= 1, true);
     assert.equal(data.run.analysisCoverage.checkedLinks, data.run.linkStatus.checkedLinks.length);
     assert.equal(data.run.analysisCoverage.renderedPages, 0);
     assert.equal(data.run.webQualityScores.source, 'sitefit-rules');
@@ -354,7 +505,9 @@ test('diagnose API exposes analysis coverage for trust evidence', async () => {
     assert.equal(data.run.salesConversion.ctaLabel, '진단 결과 기반 개선안 받기');
     assert.equal(data.run.salesConversion.recommendedPackages.length > 0, true);
     assert.equal(typeof data.run.salesConversion.expertRequiredIssueCount, 'number');
+    assert.match(data.run.salesConversion.salesTalkTrack.headline, /제조\/산업/);
     assert.equal(data.run.trustEvidence.source, 'sitefit-rules');
+    assert.ok(data.run.trustEvidence.items.some((item) => item.label === '수집 한도 사용'));
     assert.ok(data.run.trustEvidence.items.some((item) => item.label === '분석률'));
     assert.match(data.run.summary, /분석률/);
   } finally {
@@ -633,6 +786,35 @@ test('protects admin and sales APIs when an admin token is configured', async ()
       headers: { authorization: 'Bearer secret-token' }
     });
     assert.equal(allowed.status, 200);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('requires an admin token for protected APIs in production', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-prod-auth-'));
+  const app = createServer({ dataDir: dir, adminToken: '', nodeEnv: 'production' });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const health = await fetch(`${baseUrl}/health`);
+    assert.equal(health.status, 200);
+
+    const denied = await fetch(`${baseUrl}/api/admin/summary`);
+    const deniedBody = await denied.json();
+    assert.equal(denied.status, 401);
+    assert.equal(deniedBody.error, 'admin_token_required');
+
+    const sessionResponse = await fetch(`${baseUrl}/api/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: '' })
+    });
+    const sessionBody = await sessionResponse.json();
+    assert.equal(sessionResponse.status, 503);
+    assert.equal(sessionBody.error, 'admin_token_required');
   } finally {
     await new Promise((resolve) => app.close(resolve));
     await rm(dir, { recursive: true, force: true });

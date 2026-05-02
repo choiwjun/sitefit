@@ -1,4 +1,5 @@
 import { complianceNotesForIndustry } from '../compliance/industry-guardrails.js';
+import { createPlainLanguageSummary, enrichWorkOrderPlainLanguage } from './plain-language.js';
 
 const FORBIDDEN_PATTERNS = [
   /guarantee/gi,
@@ -16,6 +17,11 @@ export function generateReportDraft({ scores = {}, issues = [], industry = '' })
   const topNames = groupedIssues.slice(0, 5).map((issue) => issue.name).join(', ') || '사이트 구조 확인';
   const rawIssueCount = issues.length;
   const uniqueIssueCount = groupedIssues.length;
+  const issueSummary = {
+    uniqueIssueCount,
+    rawIssueCount
+  };
+  const workOrders = groupedIssues.map(toWorkOrder).map(enrichWorkOrderPlainLanguage);
 
   const report = {
     executiveSummary: sanitize(
@@ -24,12 +30,10 @@ export function generateReportDraft({ scores = {}, issues = [], industry = '' })
       `개선 유형 ${uniqueIssueCount}개를 확인했습니다. 페이지별 탐지 건수는 ${rawIssueCount}건입니다. ` +
       `첫 상담에서는 ${topNames}을 우선 검토하는 것이 적합합니다.`
     ),
-    issueSummary: {
-      uniqueIssueCount,
-      rawIssueCount
-    },
+    issueSummary,
+    plainLanguageSummary: createPlainLanguageSummary({ scores, workOrders, issueSummary }),
     workScopeSummary: summarizeWorkScopes(groupedIssues),
-    workOrders: groupedIssues.map(toWorkOrder),
+    workOrders,
     complianceNotes: complianceNotesForIndustry(industry),
     riskNotice: '이 리포트는 준비도와 작업 범위를 점검합니다. 검색 순위나 방문자 수, AI 답변 포함 여부를 보장하지 않습니다.',
     consultationCta: highImpact.length
