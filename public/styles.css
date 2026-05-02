@@ -831,6 +831,22 @@ textarea {
   font-size: 15px;
 }
 
+.issue-specific-signal {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f8fbff;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.issue-specific-signal strong {
+  color: var(--ink);
+}
+
 .issue-next-action {
   display: grid;
   gap: 6px;

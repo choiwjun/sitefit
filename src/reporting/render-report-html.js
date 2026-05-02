@@ -372,9 +372,24 @@ function renderEvidenceSummary(pageResults) {
 }
 
 function topPriorityIssues(workOrders) {
-  return [...workOrders]
-    .sort((a, b) => impactWeight(b.impact) - impactWeight(a.impact) || String(a.issueName).localeCompare(String(b.issueName), 'ko'))
-    .slice(0, 3);
+  const ranked = [...workOrders].sort(comparePriorityIssues);
+  const selected = [];
+  const usedLayers = new Set();
+
+  for (const issue of ranked) {
+    const layer = issue.layer || 'review';
+    if (selected.length < 3 && !usedLayers.has(layer)) {
+      selected.push(issue);
+      usedLayers.add(layer);
+    }
+  }
+
+  for (const issue of ranked) {
+    if (selected.length >= 3) break;
+    if (!selected.includes(issue)) selected.push(issue);
+  }
+
+  return selected;
 }
 
 function scoreBand(value) {
@@ -400,6 +415,39 @@ function labelForPageType(value) {
 
 function impactWeight(value) {
   return { high: 3, medium: 2, low: 1 }[value] || 0;
+}
+
+function comparePriorityIssues(a, b) {
+  return priorityScore(b) - priorityScore(a) ||
+    String(a.issueName || a.name || '').localeCompare(String(b.issueName || b.name || ''), 'ko');
+}
+
+function priorityScore(issue = {}) {
+  const occurrence = Number(issue.occurrenceCount || issue.affectedUrls?.length || 1);
+  return impactWeight(issue.impact) * 100 +
+    confidenceWeight(issue.confidence) * 12 +
+    Math.min(occurrence, 10) * 8 +
+    scopeWeight(issue.expectedScope) * 6 +
+    layerWeight(issue.layer) * 3;
+}
+
+function confidenceWeight(value) {
+  return { high: 3, medium: 2, low: 1 }[value] || 0;
+}
+
+function scopeWeight(value) {
+  return { large: 3, medium: 2, small: 1, unknown: 0 }[value] || 0;
+}
+
+function layerWeight(value) {
+  return {
+    conversion: 6,
+    'technical-seo': 5,
+    geo: 4,
+    aeo: 3,
+    'search-understanding': 2,
+    review: 1
+  }[value] || 0;
 }
 
 function issueImpactClass(value) {

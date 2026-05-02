@@ -508,8 +508,7 @@ function renderAllIssuesDetails(workOrders) {
 }
 
 function renderPriorityIssueBriefing(workOrders) {
-  const ordered = [...workOrders].sort((a, b) => impactRank(b.impact) - impactRank(a.impact));
-  const topIssues = ordered.slice(0, 3);
+  const topIssues = selectPriorityIssues(workOrders, 3);
 
   return `
     <section class="panel readable-section report-priority-section issue-briefing-section">
@@ -540,6 +539,7 @@ function renderBriefIssueCard(issue, options = {}) {
         <strong>${escapeHtml(plain.plainTitle)}</strong>
       </div>
       <p class="issue-plain-meaning">${escapeHtml(plain.plainMeaning)}</p>
+      <p class="issue-specific-signal"><strong>이번 사이트에서 확인:</strong> ${escapeHtml(shortIssueEvidence(issue))}</p>
       <div class="issue-next-action">
         <span>먼저 할 일</span>
         <p>${escapeHtml(plain.plainFirstFix)}</p>
@@ -692,9 +692,75 @@ function impactRank(value) {
   return { high: 3, medium: 2, low: 1 }[value] || 0;
 }
 
+function selectPriorityIssues(workOrders, limit = 3) {
+  const ranked = [...workOrders].sort(comparePriorityIssues);
+  const selected = [];
+  const usedLayers = new Set();
+
+  for (const issue of ranked) {
+    const layer = issue.layer || 'review';
+    if (selected.length < limit && !usedLayers.has(layer)) {
+      selected.push(issue);
+      usedLayers.add(layer);
+    }
+  }
+
+  for (const issue of ranked) {
+    if (selected.length >= limit) break;
+    if (!selected.includes(issue)) selected.push(issue);
+  }
+
+  return selected;
+}
+
+function comparePriorityIssues(a, b) {
+  return priorityScore(b) - priorityScore(a) ||
+    String(a.issueName || a.name || '').localeCompare(String(b.issueName || b.name || ''), 'ko');
+}
+
+function priorityScore(issue = {}) {
+  const occurrence = Number(issue.occurrenceCount || issue.affectedUrls?.length || 1);
+  return impactRank(issue.impact) * 100 +
+    confidenceRank(issue.confidence) * 12 +
+    Math.min(occurrence, 10) * 8 +
+    scopeRank(issue.expectedScope) * 6 +
+    layerRank(issue.layer) * 3;
+}
+
+function confidenceRank(value) {
+  return { high: 3, medium: 2, low: 1 }[value] || 0;
+}
+
+function scopeRank(value) {
+  return { large: 3, medium: 2, small: 1, unknown: 0 }[value] || 0;
+}
+
+function layerRank(value) {
+  return {
+    conversion: 6,
+    'technical-seo': 5,
+    geo: 4,
+    aeo: 3,
+    'search-understanding': 2,
+    review: 1
+  }[value] || 0;
+}
+
+function shortIssueEvidence(issue = {}) {
+  const count = Number(issue.occurrenceCount || issue.affectedUrls?.length || 0);
+  const prefix = count > 1 ? `${count}곳에서 반복 확인. ` : '';
+  const raw = issue.evidence || issue.instruction || issue.issueName || issue.name || '';
+  const compact = String(raw)
+    .replace(/\s+/g, ' ')
+    .replace(/https?:\/\/[^\s,]+/g, (url) => url.length > 52 ? `${url.slice(0, 49)}...` : url)
+    .trim();
+  const text = `${prefix}${compact}`.trim();
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
+
 function createFallbackPlainSummary(run, workOrders) {
-  const ordered = [...workOrders].sort((a, b) => impactRank(b.impact) - impactRank(a.impact));
-  const top = ordered[0] ? plainIssueCopy(ordered[0]) : null;
+  const topIssue = selectPriorityIssues(workOrders, 1)[0];
+  const top = topIssue ? plainIssueCopy(topIssue) : null;
   const score = Number(run.scores?.overall ?? 0);
   return {
     title: '한눈에 보는 진단 결과',

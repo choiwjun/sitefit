@@ -109,6 +109,9 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(script, /renderPriorityIssues/);
   assert.match(script, /renderSalesConversion/);
   assert.match(script, /renderTrustEvidence/);
+  assert.match(script, /selectPriorityIssues/);
+  assert.match(script, /shortIssueEvidence/);
+  assert.match(script, /이번 사이트에서 확인/);
   assert.match(script, /진단 결과 기반 개선안 받기/);
   assert.match(script, /견적 전환 제안/);
   assert.match(script, /진단 신뢰 근거/);
@@ -118,6 +121,7 @@ test('public diagnosis result is grouped into readable summary sections', async 
   assert.match(css, /\.result-overview/);
   assert.match(css, /\.issue-group-grid/);
   assert.match(css, /\.readable-issue-card/);
+  assert.match(css, /\.issue-specific-signal/);
   assert.match(css, /\.package-grid/);
   assert.match(css, /\.trust-evidence-grid/);
 });
