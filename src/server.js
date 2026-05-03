@@ -371,9 +371,36 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
     webQualityScores,
     issues
   });
-  const run = await store.addDiagnosisRun(result);
+  let run;
+  try {
+    run = await store.addDiagnosisRun(result);
+  } catch (error) {
+    return sendJson(response, 503, diagnosisStorageFailurePayload(error));
+  }
 
   return sendJson(response, 201, { run });
+}
+
+function diagnosisStorageFailurePayload(error) {
+  return {
+    error: 'storage_unavailable',
+    message: 'The diagnosis completed, but the result could not be saved.',
+    userMessage: 'Diagnosis storage is not available right now.',
+    recoveryActions: [
+      'Run supabase/schema.sql in the Supabase SQL Editor or apply the matching migration.',
+      'Check SUPABASE_URL, SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_RECORDS_TABLE.',
+      'Open the server logs for the Supabase status and table error returned by /api/diagnose.'
+    ],
+    details: {
+      storage: 'diagnosis-runs',
+      cause: sanitizeStorageError(error)
+    }
+  };
+}
+
+function sanitizeStorageError(error) {
+  const message = String(error?.message || 'unknown storage error');
+  return message.replace(/Bearer\s+[A-Za-z0-9._-]+/g, 'Bearer [redacted]');
 }
 
 function diagnosisFailurePayload(error, message, details = {}) {

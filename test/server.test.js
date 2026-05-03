@@ -304,6 +304,42 @@ test('diagnose API analyzes multiple crawled same-origin pages', async () => {
   }
 });
 
+test('diagnose API returns storage guidance when the diagnosis run cannot be saved', async () => {
+  const store = {
+    async addDiagnosisRun() {
+      throw new Error('Supabase POST sitefit_records failed: 404 relation "sitefit_records" does not exist');
+    }
+  };
+  const app = createServer({
+    store,
+    fetcher: async (url) => ({
+      url,
+      status: 200,
+      contentType: 'text/html',
+      html: '<title>Home</title><meta name="description" content="A useful homepage description."><h1>Home</h1>'
+    })
+  });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const response = await fetch(`${baseUrl}/api/diagnose`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ siteUrl: 'https://example.com/' })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.equal(body.error, 'storage_unavailable');
+    assert.match(body.message, /could not be saved/i);
+    assert.equal(body.details.storage, 'diagnosis-runs');
+    assert.equal(body.recoveryActions.some((action) => action.includes('supabase/schema.sql')), true);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+  }
+});
+
 test('serves AI report draft API for stored diagnosis run', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sitefit-ai-report-'));
   const app = createServer({
