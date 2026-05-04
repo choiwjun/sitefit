@@ -304,6 +304,44 @@ test('diagnose API analyzes multiple crawled same-origin pages', async () => {
   }
 });
 
+test('diagnose API normalizes bare domains before asset analysis and crawling', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sitefit-diagnose-bare-domain-'));
+  const requestedUrls = [];
+  const app = createServer({
+    dataDir: dir,
+    fetcher: async (url) => {
+      requestedUrls.push(url);
+      return {
+        url,
+        status: url === 'https://example.com/service' ? 200 : 404,
+        contentType: 'text/html',
+        html: url === 'https://example.com/'
+          ? '<title>Home</title><meta name="description" content="A useful homepage description."><h1>Home</h1><a href="/service">Service</a>'
+          : '<title>Service</title><h1>Service</h1><p>No FAQ or CTA here.</p>'
+      };
+    }
+  });
+
+  await new Promise((resolve) => app.listen(0, resolve));
+  try {
+    const baseUrl = `http://127.0.0.1:${app.address().port}`;
+    const response = await fetch(`${baseUrl}/api/diagnose`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ siteUrl: 'example.com' })
+    });
+    const data = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(data.run.url, 'https://example.com/');
+    assert.equal(requestedUrls.includes('https://example.com/robots.txt'), true);
+    assert.equal(requestedUrls.includes('https://example.com/'), true);
+  } finally {
+    await new Promise((resolve) => app.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('diagnose API returns storage guidance when the diagnosis run cannot be saved', async () => {
   const store = {
     async addDiagnosisRun() {

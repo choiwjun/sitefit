@@ -272,8 +272,9 @@ async function handleDiagnose(request, response, store, fetcher, renderer, crawl
     }));
   }
 
-  const preflightAssets = await analyzeSiteAssets(body.siteUrl, { fetcher: assetFetcherFrom(fetcher) });
-  const crawl = await crawlSite(body.siteUrl, {
+  const siteUrl = urlValidation.url;
+  const preflightAssets = await analyzeSiteAssets(siteUrl, { fetcher: assetFetcherFrom(fetcher) });
+  const crawl = await crawlSite(siteUrl, {
     maxPages: Number(body.maxPages || crawlerConfig.maxPages),
     maxDepth: Number(body.maxDepth || crawlerConfig.maxDepth),
     maxBytes: Number(body.maxBytes || crawlerConfig.maxBytes),
