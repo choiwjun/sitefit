@@ -17,6 +17,14 @@ test('loads default runtime configuration', () => {
   assert.equal(config.ai.provider, 'mock');
 });
 
+test('uses bounded crawler defaults in Vercel functions', () => {
+  const config = loadConfig({ VERCEL: '1' });
+
+  assert.equal(config.crawler.maxPages, 3);
+  assert.equal(config.crawler.maxDepth, 1);
+  assert.equal(config.crawler.maxLinkChecks, 8);
+});
+
 test('parses numeric environment overrides', () => {
   const config = loadConfig({
     PORT: '4100',

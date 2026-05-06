@@ -127,3 +127,21 @@ test('follows same-origin sitemap index entries for crawl seeding', async () => 
   ]);
   assert.deepEqual(result.sitemapIndexes, ['https://example.com/pages.xml']);
 });
+
+test('default asset fetches use an abort signal', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const requested = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async (url, options = {}) => {
+    requested.push({ url, signal: options.signal });
+    return new Response('', { status: 404 });
+  };
+
+  await analyzeSiteAssets('https://example.com/');
+
+  assert.equal(requested.length, 2);
+  assert.equal(requested.every((request) => request.signal instanceof AbortSignal), true);
+});

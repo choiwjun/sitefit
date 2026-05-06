@@ -151,13 +151,21 @@ async function safeFetch(fetcher, url) {
 }
 
 async function defaultFetchText(url) {
-  const response = await fetch(url, {
-    headers: {
-      'user-agent': 'SiteFitBot/0.1 (+https://sitefit.local)'
-    }
-  });
-  return {
-    status: response.status,
-    text: await response.text()
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'user-agent': 'SiteFitBot/0.1 (+https://sitefit.local)'
+      }
+    });
+    return {
+      status: response.status,
+      text: await response.text()
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }

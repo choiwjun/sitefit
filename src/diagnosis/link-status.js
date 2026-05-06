@@ -56,30 +56,37 @@ export async function analyzeLinkStatus({ rootUrl, pageResults = [], fetcher, ma
   const redirects = [];
   const redirectChains = [];
 
-  for (const link of links) {
+  const results = await Promise.all(links.map(async (link) => {
     const validation = validateCrawlUrl(link);
     if (!validation.ok) {
-      skippedLinks.push({ url: link, reason: validation.reason });
-      continue;
+      return { type: 'skipped', item: { url: link, reason: validation.reason } };
     }
 
     try {
       const result = await checkLink(validation.url, fetcher);
-      checkedLinks.push(result);
-
-      if (result.status >= 400 && result.status < 500) {
-        broken.push(result);
-      } else if (result.status >= 500) {
-        serverErrors.push(result);
-      } else if (isRedirect(result)) {
-        redirects.push(result);
-      }
-      if (hasRedirectChain(result)) {
-        redirectChains.push(result);
-      }
+      return { type: 'checked', item: result };
     } catch (error) {
-      checkedLinks.push({ url: validation.url, status: 0, error: error.message });
-      broken.push({ url: validation.url, status: 0, error: error.message });
+      return { type: 'checked', item: { url: validation.url, status: 0, error: error.message } };
+    }
+  }));
+
+  for (const result of results) {
+    if (result.type === 'skipped') {
+      skippedLinks.push(result.item);
+      continue;
+    }
+
+    const item = result.item;
+    checkedLinks.push(item);
+    if (item.status === 0 || (item.status >= 400 && item.status < 500)) {
+      broken.push(item);
+    } else if (item.status >= 500) {
+      serverErrors.push(item);
+    } else if (isRedirect(item)) {
+      redirects.push(item);
+    }
+    if (hasRedirectChain(item)) {
+      redirectChains.push(item);
     }
   }
 
